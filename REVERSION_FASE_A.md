@@ -873,3 +873,24 @@ docker compose up -d --no-build
 
 **Qué se pierde al volver:** no se ven los avisos de las búsquedas anteriores en el panel del historial (la última búsqueda sí los sigue mostrando). No se pierden ofertas, estados ni búsquedas.
 Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200. Volumen temporal borrado.
+
+## Aviso de robots.txt solo en portales de empleo (02-11-2026)
+
+Commit `2eaa620` (rama `feat/unificar-ofertas`, con push). Commit de código `a49ceb9`: `rellenar_aviso.desde_url` no revisa
+`robots.txt` solo si el enlace es de un portal de `rellenar_aviso.PORTALES_TRABAJO` (decisión de Sofia). Los demás sitios
+siguen revisándose. Sin cambios de esquema ni reclasificación. 911 pruebas en verde antes del despliegue.
+Imagen anterior: `job-tracker:pre-rellenar-robots-20261102` (`sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:d040818e4403cfc928d44a8386c23939656b14ceccbab66cc45aeb8531d69d97`.
+Referencia: `ofertas_pre_rellenar_robots_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\`), sha256 `41aa85f9471ac98cf7088c5fffd854160671b51b5cf803ab4c55c06be2c1879c`, integrity_check ok (en el volumen el mismo sha256). Salida al detener: 0.
+Huellas: RESULTADO OK, ninguna tabla cambió (v7, 7793 ofertas, 46 postuladas, 6 POR VERIFICAR). Comprobaciones HTTP: `/`, `/api/estado`, `/api/ofertas`, `/api/respaldo` 200; origen ajeno 403; `/api/aviso` con URL inválida 400.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-rellenar-robots-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** vuelve a revisar `robots.txt` en todos los enlaces de `/api/aviso`, incluidos los portales de empleo. No se pierden ofertas ni estados.
+Reversión probada en copia (imagen anterior abre la base de referencia con integrity_check ok, solo lectura, sin red).
