@@ -49,6 +49,8 @@ VERSION_DB = 7
 salida = print   # salida por defecto (consola)
 # el servidor pone aquí, en el hilo de cada búsqueda, a quién avisar: así «Buscar» y «Explorar» no se mezclan
 salida_del_hilo = threading.local()
+# el servidor pone aquí el id de la búsqueda «Buscar empleos» que corre en ese hilo: la normal y la de remotos lo comparten
+grupo_del_hilo = threading.local()
 
 
 def _say(mensaje: str):
@@ -441,6 +443,8 @@ def conectar(path=None) -> sqlite3.Connection:
             fuente TEXT DEFAULT 'indeed', clave_base TEXT, ciudad TEXT DEFAULT '')""")
     con.execute("""CREATE TABLE IF NOT EXISTS corridas (
         id INTEGER PRIMARY KEY AUTOINCREMENT, inicio TEXT, fin TEXT, nuevas INTEGER, detalle TEXT)""")
+    if "grupo" not in {r[1] for r in con.execute("PRAGMA table_info(corridas)")}:   # shortcut: sin versión propia; las filas viejas quedan sin grupo y se agrupan por tiempo
+        con.execute("ALTER TABLE corridas ADD COLUMN grupo TEXT")
     con.execute("""CREATE TABLE IF NOT EXISTS terminos_no_disponibles (
         sitio TEXT, termino TEXT, hasta TEXT, PRIMARY KEY (sitio, termino))""")
     con.commit()
@@ -921,8 +925,9 @@ def buscar_ofertas(con, fuentes=None) -> int:
         print(telemetria.resumen({config.NOMBRE_FUENTE[s]: tele[s] for s in stats}), file=sys.stderr, flush=True)
     except Exception:
         pass
-    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES (?, ?, ?, ?)",
-                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False)))
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, grupo) VALUES (?, ?, ?, ?, ?)",
+                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False),
+                 getattr(grupo_del_hilo, "id", None)))
     con.commit()
     return total
 
@@ -990,8 +995,9 @@ def explorar_remotos(con, fuentes=None) -> int:
     detalle = {"fuentes": [{"fuente": config.NOMBRE_FUENTE[s] + " (explorar)", **stats[s], "ventana_dias": ventanas[s],
                             "telemetria": tele[s]} for s in sitios],
                "ventana_dias": {s: ventanas[s] for s in sitios}, "avisos": avisos}
-    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen) VALUES (?, ?, ?, ?, 'explorar')",
-                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False)))
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen, grupo) VALUES (?, ?, ?, ?, 'explorar', ?)",
+                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False),
+                 getattr(grupo_del_hilo, "id", None)))
     con.commit()
     return total
 
@@ -1054,18 +1060,62 @@ def ofertas_para_pagina(con) -> dict:
     return datos
 
 
-def historial_corridas(con) -> list[dict]:
-    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes}."""
-    corridas = []
-    for r in con.execute("SELECT id, inicio, fin, nuevas, detalle FROM corridas ORDER BY inicio DESC, id DESC"):
+def _como_lista(valor) -> list:
+    return valor if isinstance(valor, list) else []
+
+
+def _solapan(a: dict, b: dict) -> bool:
+    return a["inicio"][:16] <= b["fin"][:16] and b["inicio"][:16] <= a["fin"][:16]
+
+
+def _unir(partes: list[dict]) -> dict:
+    """Una búsqueda a partir de sus filas en corridas. Con dos (normal + exploración), fuentes y avisos de ambas."""
+    if len(partes) == 1:
+        p = partes[0]
+        return {"id": p["id"], "inicio": p["inicio"], "fin": p["fin"], "nuevas": p["nuevas"], "detalle": p["detalle"]}
+    partes = sorted(partes, key=lambda p: p["explorar"])          # la normal primero: manda su detalle base
+    detalle = dict(partes[0]["detalle"])
+    for k in ("fuentes", "avisos"):
+        detalle[k] = [x for p in partes for x in _como_lista(p["detalle"].get(k))]
+    return {"id": max(p["id"] for p in partes), "inicio": min(p["inicio"] for p in partes),
+            "fin": max(p["fin"] for p in partes), "nuevas": sum(p["nuevas"] for p in partes), "detalle": detalle}
+
+
+def _busquedas(con) -> list[dict]:
+    """Una entrada por búsqueda, la más reciente primero. «Buscar empleos» guarda la normal y la de remotos con el mismo
+    grupo; las filas viejas (sin grupo) se juntan por solapamiento de minutos, una de cada tipo."""
+    grupos = []           # cada grupo: lista de filas de una misma búsqueda
+    por_id = {}           # grupo explícito -> su lista
+    for r in con.execute("SELECT id, inicio, fin, nuevas, detalle, COALESCE(origen, '') AS origen, grupo "
+                         "FROM corridas ORDER BY inicio DESC, id DESC"):
         try:
             detalle = json.loads(r["detalle"] or "{}")
         except ValueError:
             detalle = {}
-        fuentes = detalle.get("fuentes") if isinstance(detalle, dict) else None
-        corridas.append({"id": r["id"], "inicio": r["inicio"], "fin": r["fin"], "nuevas": r["nuevas"] or 0,
-                         "fuentes": fuentes if isinstance(fuentes, list) else []})
-    return corridas
+        f = {"id": r["id"], "inicio": r["inicio"], "fin": r["fin"], "nuevas": r["nuevas"] or 0,
+             "explorar": r["origen"] == "explorar", "grupo": r["grupo"],
+             "detalle": detalle if isinstance(detalle, dict) else {}}
+        if r["grupo"]:
+            if r["grupo"] in por_id:
+                por_id[r["grupo"]].append(f)
+            else:
+                por_id[r["grupo"]] = [f]
+                grupos.append(por_id[r["grupo"]])
+            continue
+        def cabe(g):
+            return all(p["explorar"] != f["explorar"] for p in g) and any(_solapan(p, f) for p in g)
+        g = next((g for g in grupos if not any(p.get("grupo") for p in g) and cabe(g)), None)
+        if g is None:
+            grupos.append([f])
+        else:
+            g.append(f)
+    return [_unir(g) for g in grupos]
+
+
+def historial_corridas(con) -> list[dict]:
+    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes}."""
+    return [{"id": b["id"], "inicio": b["inicio"], "fin": b["fin"], "nuevas": b["nuevas"],
+             "fuentes": _como_lista(b["detalle"].get("fuentes"))} for b in _busquedas(con)]
 
 
 def corrida_de(detectada_en, corridas: list[dict]):
@@ -1437,12 +1487,8 @@ def _con_prioridad_mostrada(o: dict) -> dict:
 
 
 def ultima_corrida(con):
-    fila = con.execute("SELECT * FROM corridas ORDER BY id DESC LIMIT 1").fetchone()
-    if not fila:
-        return None
-    d = dict(fila)
-    d["detalle"] = json.loads(d.pop("detalle") or "{}")
-    return d
+    busquedas = _busquedas(con)
+    return busquedas[0] if busquedas else None
 
 
 def resumen(principal: list[dict]) -> str:

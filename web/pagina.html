@@ -293,6 +293,11 @@
   .filtros-extra summary:hover { color:var(--tinta); }
   .filtros-extra-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:8px; margin-top:8px; }
   h3.grupo { font-size:1.08rem; margin:24px 0 10px; display:flex; align-items:center; gap:4px; }
+  /* Ofertas: empleos a la izquierda, remotos a la derecha; apilados en pantallas angostas */
+  .dos-cols { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:28px; align-items:start; }
+  .dos-cols > div { min-width:0; }
+  .dos-cols h3.grupo:first-child { margin-top:0; }
+  @media (max-width:900px) { .dos-cols { grid-template-columns:minmax(0,1fr); } }
 
   .tarjeta { background:var(--panel); border:1px solid var(--borde); border-radius:16px; padding:16px 20px; margin-bottom:12px; box-sizing:border-box; overflow:hidden; }
   .tarjeta.cerrada { opacity:.78; }
@@ -723,9 +728,9 @@ function listaDe(datos, pestana, sel) {
     : (datos[pestana] || []);
   return filtrarSeleccion(base, pestana, sel, datos.corridas);
 }
-// La cuenta de Ofertas incluye las «Sin texto» pendientes: se muestran en la misma pestaña, al final
+// La cuenta de Ofertas incluye las «Sin texto» pendientes y los remotos: todo se ve en la misma pestaña
 function totalOfertas(datos, sel) {
-  return listaDe(datos, "ofertas", sel).length + listaDe(datos, "sin_descripcion", sel).length;
+  return listaDe(datos, "ofertas", sel).length + listaDe(datos, "sin_descripcion", sel).length + listaDe(datos, "explorar", sel).length;
 }
 function progresoDe(mensaje) {                   // "[12/40] ..." o "[bne 2/5] ..." -> {n, total, pct}
   const m = /\[(?:[^\[\]]*\s)?(\d+)\/(\d+)\]/.exec(mensaje || "");
@@ -1058,7 +1063,7 @@ const nombreFuente = f => (S.nombresFuentes || {})[f] || NOMBRE_FUENTE_RESPALDO[
 const ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "descartada"];
 const ETIQUETAS_ESTADO = { nueva: "🌱 Nueva", revisada: "🔍 Revisada", postulada: "✉️ Postulada", entrevista: "🎯 En Entrevista", descartada: "❌ Descartada" };
 const PESTANAS = [
-  ["ofertas", "Ofertas"], ["explorar", "Explorar remotos"], ["fuera_perfil", "Fuera de perfil"],
+  ["ofertas", "Ofertas"], ["fuera_perfil", "Fuera de perfil"],
   ["sospechosas", "Sospechosas"], ["descartadas_usuario", "Descartadas"], ["descartadas", "Descartadas por filtros"]
 ];
 const FILTROS_VACIOS = () => ({ texto: "", estado: "activas", prioridad: "", modalidad: "", fuente: "", tipo: "" });
@@ -1614,7 +1619,7 @@ function selector(clave, etiqueta, opciones, extra, nombre) {
 
 const PESTANAS_PRINCIPAL = new Set(["ofertas", "seguimiento", "descartadas_usuario"]);
 // "Sin descripción" trae su propia lista, pero se ve y se trabaja como Ofertas: tarjeta completa y los mismos filtros
-const PESTANAS_COMPLETAS = new Set([...PESTANAS_PRINCIPAL, "sin_descripcion", "explorar"]);
+const PESTANAS_COMPLETAS = new Set([...PESTANAS_PRINCIPAL, "sin_descripcion", "explorar"]);   // "explorar" = remotos, dentro de Ofertas
 function pintarFiltros() {
   const base = PESTANAS_PRINCIPAL.has(vista()) ? gestionadas(S.datos) : (S.datos[vista()] || []);
   const unicos = campo => [...new Set(base.map(o => o[campo]).filter(Boolean))].sort();
@@ -1962,12 +1967,11 @@ $("btn-manual").addEventListener("click", e => abrirManual(e.currentTarget));
 
 // ---------- ayuda por pantalla: cambia según la pestaña activa (mismo diálogo que los demás: Esc cierra, el foco no sale)
 const AYUDA_PESTANA = {
-  ofertas: { titulo: "Ofertas", texto: "Las ofertas que la app considera relevantes y que aún no decidiste. Revisa cada una: abre el aviso con el título o con ↗, y cambia su estado desde la tarjeta. Si no te interesa, márcala como Descartada: sale de esta lista y queda en Descartadas. Si postulaste a una que la búsqueda no trajo, usa «➕ Agregar postulación manual» (arriba): si ya la tienes, la app te muestra la existente y te deja guardarla igual. Al final aparecen las «Sin texto»: ofertas cuya descripción no llegó (a veces pasa con LinkedIn, Glassdoor o Jooble). Pega la descripción en su tarjeta y la app la revisa." },
+  ofertas: { titulo: "Ofertas", texto: "Las ofertas que la app considera relevantes y que aún no decidiste. Revisa cada una: abre el aviso con el título o con ↗, y cambia su estado desde la tarjeta. Si no te interesa, márcala como Descartada: sale de esta lista y queda en Descartadas. Si postulaste a una que la búsqueda no trajo, usa «➕ Agregar postulación manual» (arriba): si ya la tienes, la app te muestra la existente y te deja guardarla igual. Al final aparecen las «Sin texto»: ofertas cuya descripción no llegó (a veces pasa con LinkedIn, Glassdoor o Jooble). Pega la descripción en su tarjeta y la app la revisa. A la derecha, en «Remotos», van los roles remotos fuera de tu perfil TI que podrían calzarte; se gestionan igual que las de la izquierda." },
   seguimiento: { titulo: "Seguimiento", texto: "Las ofertas en proceso (revisadas, postuladas o en entrevista). Arriba eliges cómo verlas: Tablero, Tarjetas o Compacta. En Tablero, arrastra cada tarjeta a su etapa, o usa «Mover a…». Cada movimiento tiene «Deshacer». Con «⚡ Gestionar proceso» anotas la fecha de postulación, la fase, las notas y el sueldo. Para agregar una postulación que no trajo la búsqueda, usa «➕ Agregar postulación manual»; si ya existe una con el mismo cargo y empresa, te ofrece verla o guardarla de todas formas." },
   metricas: { titulo: "Métricas", texto: "Indicadores sobre todas tus ofertas relevantes: cuántas postulaciones, cuántas respuestas, el embudo por etapa y los días promedio. Abajo hay desgloses por fuente, modalidad y tipo, y la actividad de las últimas semanas. Es solo lectura: para cambiar algo, ve a Ofertas o a Seguimiento." },
   ajustes: { titulo: "Ajustes", texto: "Tres secciones. Qué busco: los puestos y las ubicaciones que se piden a las fuentes, y las exclusiones (lo que nunca debe aparecer); los cambios se usan en la próxima búsqueda. Datos: CSV de Ofertas, CSV de Seguimiento, respaldo JSON y «Respaldar ahora». Apariencia y avisos: tema, contraste reforzado y avisos del navegador. Lo que eliges se recuerda en este navegador." },
   sin_descripcion: { titulo: "Descripción desconocida", texto: "Ofertas que llegaron sin descripción (a veces pasa con LinkedIn, Glassdoor o Jooble): la app no puede revisar su experiencia ni su nivel. Abre el aviso con ↗, copia la descripción completa y pégala en su tarjeta con «Guardar descripción». Si cumple, pasa a Ofertas; si no, queda descartada." },
-  explorar: { titulo: "Explorar remotos", texto: "Roles remotos fuera de tu perfil TI que podrían calzarte: implementación u onboarding, CRM y automatización sin código, IA y datos, documentación técnica, producto y UX, asistente virtual, traducción, trabajos freelance o por proyecto, y otros. Llegan con el botón «🧭 Explorar remotos» y también desde las fuentes remotas de la búsqueda normal. Pasan los mismos filtros (nivel, experiencia, práctica, estafas) y solo entran si son remotos. Se gestionan igual que Ofertas: si cambias su estado, pasan a Seguimiento o a Descartadas." },
   fuera_perfil: { titulo: "Fuera de perfil", texto: "Ofertas que la app apartó por no encajar con tu perfil, por ejemplo soporte o mesa de ayuda. Revísalas por si alguna te sirve; la razón de cada una aparece en su tarjeta. El interruptor «Incluir soporte TI» decide si se ven también en Ofertas." },
   sospechosas: { titulo: "Sospechosas", texto: "Ofertas con señales de posible estafa: piden un pago, datos bancarios o contacto solo por WhatsApp. No postules a ninguna sin verificar la empresa por otro medio." },
   descartadas_usuario: { titulo: "Descartadas", texto: "Ofertas que tú descartaste. Para recuperar una, abre su tarjeta y cambia su estado a otro (Nueva, Revisada, etc.)." },
@@ -2288,11 +2292,12 @@ function pintarLista() {
   if (vista() === "seguimiento" && S.vistaSeg === "tablero") { cont.replaceChildren(...cabecera, tableroSeguimiento(filas)); return; }
   // las «Sin texto» pendientes van al final de Ofertas, aunque no haya ninguna otra
   const sinTextoFilas = vista() === "ofertas" ? listaDe(S.datos, "sin_descripcion", S.sel).filter(pasa) : [];
-  if (!filas.length && !sinTextoFilas.length) {
+  // Ofertas: empleos a la izquierda y remotos (explorar) a la derecha
+  const remotosFilas = vista() === "ofertas" ? listaDe(S.datos, "explorar", S.sel).filter(pasa) : [];
+  if (!filas.length && !sinTextoFilas.length && !remotosFilas.length) {
     const msj = S.sel.tipo !== "todas" && !SIN_FILTRO_HISTORIAL.has(vista()) ? "No hay ofertas de esta selección en esta pestaña."
       : vista() === "ofertas" ? "No hay ofertas con estos filtros. Prueba «Buscar empleos» o relaja los filtros."
       : vista() === "descartadas_usuario" ? "No tienes ofertas descartadas manualmente."
-      : vista() === "explorar" ? "Nada por explorar todavía. Prueba «🧭 Explorar remotos»."
       : vista() === "sin_descripcion" ? "Nada pendiente. Aquí llegan las ofertas cuyo texto no llegó, para que las abras tú."
       : "Nada que mostrar aquí.";
     cont.replaceChildren(...cabecera, h("div", { class: "vacio" }, msj)); return;
@@ -2320,8 +2325,10 @@ function pintarLista() {
           + "Ábrelo con ↗ y márcalo; «❌ Descartada» no vuelve a aparecer."));
         elementos.push(...pintarItems(sinTextoFilas));
     }
-    
-    cont.replaceChildren(...elementos);
+    const izquierda = [h("h3", { class: "grupo" }, "Empleos", h("span", { class: "cuenta" }, filas.length + sinTextoFilas.length)), ...elementos];
+    const derecha = [h("h3", { class: "grupo" }, "Remotos", h("span", { class: "cuenta" }, remotosFilas.length)),
+      ...(remotosFilas.length ? pintarItems(remotosFilas) : [h("div", { class: "vacio" }, "No hay remotos con estos filtros. Pulsa «Buscar empleos» para traer más.")])];
+    cont.replaceChildren(h("div", { class: "dos-cols" }, h("div", { class: "col-empleos" }, ...izquierda), h("div", { class: "col-remotos" }, ...derecha)));
     return;
   }
   let nota = null;

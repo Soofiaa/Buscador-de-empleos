@@ -59,6 +59,7 @@ import sys
 import threading
 import time
 import urllib.parse
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -230,32 +231,34 @@ class Aplicacion:
         with self._lock:
             (self.estado if estado is None else estado).update(kw)
 
-    def iniciar_busqueda(self, tipo: str = "buscar", fuentes=None) -> bool:
+    def iniciar_busqueda(self, tipo: str = "buscar", fuentes=None, grupo=None) -> bool:
         """tipo: 'buscar' o 'explorar'. Cada uno, como mucho una vez a la vez; los dos pueden ir juntos.
-        fuentes: las plataformas marcadas en la página (None = todas)."""
+        fuentes: las plataformas marcadas en la página (None = todas). grupo: id común de una «Buscar empleos»."""
         estado = self.trabajos[tipo][0]
         with self._lock:
             if estado["buscando"]:
                 return False
             estado.update(buscando=True, mensaje="Iniciando la búsqueda...", error="", inicio=time.time())
-        self.hilo = threading.Thread(target=self._correr, args=(tipo, fuentes), daemon=True)
+        self.hilo = threading.Thread(target=self._correr, args=(tipo, fuentes, grupo), daemon=True)
         self.hilo.start()
         return True
 
     def iniciar_corrida(self, fuentes=None) -> bool:
         """«Buscar empleos» unificado: la búsqueda normal y la exploración de remotos, en hilos a la vez, con las
-        plataformas marcadas. False si alguna de las dos ya está en curso."""
+        plataformas marcadas y el mismo grupo (así el historial las cuenta como una). False si alguna ya está en curso."""
         with self._lock:
             if self.estado["buscando"] or self.estado_explorar["buscando"]:
                 return False
-        normal = self.iniciar_busqueda("buscar", fuentes)
-        explorar = self.iniciar_busqueda("explorar", fuentes)
+        grupo = uuid.uuid4().hex
+        normal = self.iniciar_busqueda("buscar", fuentes, grupo)
+        explorar = self.iniciar_busqueda("explorar", fuentes, grupo)
         return normal or explorar
 
-    def _correr(self, tipo: str = "buscar", fuentes=None):
+    def _correr(self, tipo: str = "buscar", fuentes=None, grupo=None):
         estado, fn, fin, (uno, varios) = self.trabajos[tipo]
         # solo en este hilo: el avance de una búsqueda no pisa el de la otra
         buscar.salida_del_hilo.fn = lambda m: self._set(estado, mensaje=str(m).strip().splitlines()[-1] if str(m).strip() else "")
+        buscar.grupo_del_hilo.id = grupo
         con = None
         t0 = time.monotonic()
         try:

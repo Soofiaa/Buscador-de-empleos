@@ -76,6 +76,27 @@ def test_la_ventana_de_la_busqueda_normal_ignora_las_exploraciones(con):
     assert buscar.ventanas_efectivas(con, datetime(2026, 10, 28, 9, 0, tzinfo=ZONA), explorar=True)["indeed"] == 2
 
 
+def test_historial_junta_normal_y_remotos_por_grupo_aunque_no_coincidan_en_el_tiempo(con):
+    # una normal que termina justo cuando empieza otra de remotos: sin grupo se juntarían; con grupo, no
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, grupo) VALUES "
+                "('2026-10-27 10:00', '2026-10-27 10:05', 2, '{}', 'A')")
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen, grupo) VALUES "
+                "('2026-10-27 10:05', '2026-10-27 10:09', 1, '{}', 'explorar', 'A')")
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, grupo) VALUES "
+                "('2026-10-27 10:05', '2026-10-27 10:06', 4, '{}', 'B')")
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen, grupo) VALUES "
+                "('2026-10-27 10:05', '2026-10-27 10:06', 0, '{}', 'explorar', 'B')")
+    hist = buscar.historial_corridas(con)
+    assert [(h["inicio"], h["nuevas"]) for h in hist] == [("2026-10-27 10:05", 4), ("2026-10-27 10:00", 3)]
+
+
+def test_filas_viejas_sin_grupo_siguen_agrupandose_por_tiempo(con):
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES ('2026-10-20 10:00', '2026-10-20 10:20', 2, '{}')")
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen) "
+                "VALUES ('2026-10-20 10:05', '2026-10-20 10:09', 1, '{}', 'explorar')")
+    assert len(buscar.historial_corridas(con)) == 1
+
+
 def test_la_primera_exploracion_mira_el_maximo_de_dias(con):
     con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES ('2026-10-28 08:00', '2026-10-28 08:20', 0, '{}')")
     v = buscar.ventanas_efectivas(con, datetime(2026, 10, 28, 9, 0, tzinfo=ZONA), explorar=True)
@@ -178,4 +199,5 @@ def test_la_pagina_tiene_la_lista_explorar():
     # «Buscar empleos» ya hace también la exploración de remotos: un solo botón, su propia barra de progreso con cronómetro
     assert 'id="buscar"' in PAGINA and '"/api/buscar"' in PAGINA
     assert 'id="progreso-explorar"' in PAGINA and 'id="barra-tiempo"' in PAGINA
-    assert '["explorar", "Explorar remotos"]' in PAGINA and "datos.explorar" in PAGINA
+    assert '["explorar", "Explorar remotos"]' not in PAGINA and "datos.explorar" in PAGINA   # remotos: columna de Ofertas
+    assert 'class: "dos-cols"' in PAGINA and '"Remotos"' in PAGINA
