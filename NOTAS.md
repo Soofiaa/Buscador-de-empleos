@@ -7,7 +7,14 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: ubicaciones editables (31-10-2026)**, commit `aeaae27` (rama `feat/unificar-ofertas`, con push).
+- **Vigente: remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026)**, commit `e9ef00f`
+  (rama `feat/unificar-ofertas`, con push). Imagen `job-tracker-jobtracker:latest` = `sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`,
+  healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-unificar-20261102` (`sha256:cb958d1f…`).
+- Referencia: `ofertas_pre_unificar_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `1799E7F7…`, integrity_check ok.
+  Huellas ANTES y DESPUÉS: la base de datos igual, salvo `corridas`, que tiene la columna nueva `grupo` (99 filas, sin
+  valor en las anteriores; el contenido de las columnas viejas es idéntico). Salida al detener: 0.
+  Cambio de esquema: `corridas.grupo` (ALTER TABLE idempotente, sin subir la versión).
+- Anterior: ubicaciones editables (31-10-2026), commit `aeaae27`.
   Imagen `job-tracker-jobtracker:latest` = `sha256:729b662fffb18afb81c79ffe3b64eadc740fa8c7694c018741c3b9849ac4f64f`,
   healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-ubicaciones-20261031` (`sha256:6d225a25…`).
 - Referencia: `ofertas_pre_ubicaciones_20261031.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, integrity_check ok.

@@ -834,3 +834,23 @@ docker compose up -d --no-build
 
 **Qué se pierde al volver:** vuelven los textos que dicen que LinkedIn llega sin descripción. No se pierden ofertas ni estados.
 Reversión probada en copia (volumen temporal, 8767): healthy, GET / 200, texto anterior de vuelta y huellas idénticas a la referencia.
+
+## Remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026)
+
+Commit `e9ef00f`: se quita la pestaña «Explorar remotos» (los remotos van en la columna derecha de Ofertas) y
+«Buscar empleos» guarda la normal y la de remotos con el mismo `corridas.grupo`, para que el historial las muestre como una.
+Imagen anterior: `job-tracker:pre-unificar-20261102` (`sha256:cb958d1f0615203f3492dac2cef0806ec2f37b8538aca666fd07a6e51ac501aa`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`.
+Referencia: `ofertas_pre_unificar_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\` y `C:\Users\sofia\Respaldos\job-tracker\`), sha256 `1799e7f7b27cd4ded09d85d365afbccb603632a6d772fa1020ef515cbeb86b88`, integrity_check ok. Salida al detener: 0.
+Huellas: versión 7, ofertas 7624, historial 485, postuladas 46, POR VERIFICAR 6 sin cambio. `corridas` cambia solo porque tiene la columna nueva `grupo` (las 99 filas anteriores quedan sin grupo; el contenido de las demás columnas es idéntico).
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-unificar-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** vuelve la pestaña «Explorar remotos» y el historial vuelve a mostrar la normal y la de remotos como dos búsquedas. La columna `grupo` queda en la base (la versión anterior la ignora). No se pierden ofertas, estados ni búsquedas nuevas hechas después del despliegue solo si se vuelve desde una base de antes; hacerlo solo si no hubo cambios desde el 02-11-2026.
+Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200, `/api/ofertas` con las 99 corridas y `integrity_check` ok. Volumen temporal borrado.
