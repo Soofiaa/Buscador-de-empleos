@@ -1564,13 +1564,15 @@ function pintarEncabezado() {
   if (c) {
     mini.hidden = false; panel.hidden = true;
     const fuentes = c.fuentes || [];
-    mini.replaceChildren(...(fuentes.length ? fuentes.map(f => h("div", { class: "fuente-mini", title: textoVentana(f) },
+    const partes = fuentes.length ? fuentes.map(f => h("div", { class: "fuente-mini", title: textoVentana(f) },
       h("div", { class: "nombre" }, f.fuente),
       h("div", { class: "cifras" }, TXT.encontradas(f.encontradas ?? 0) + " · ",
         h("span", { class: f.relevantes ? "rel" : null }, TXT.nuevasRelevantes(f.relevantes ?? 0)),
         f.errores ? h("span", { class: "err" }, " · " + TXT.errores(f.errores)) : null),
       f.antiguas ? h("div", { class: "antiguas" }, textoAntiguas(f.antiguas)) : null))
-      : [h("div", { class: "sub" }, "Esta búsqueda no guardó el detalle por fuente.")]));
+      : [h("div", { class: "sub" }, "Esta búsqueda no guardó el detalle por fuente.")];
+    if ((c.avisos || []).length) partes.push(h("ul", { class: "avisos" }, c.avisos.map(a => h("li", {}, a))));
+    mini.replaceChildren(...partes);
     return;
   }
   mini.hidden = true;

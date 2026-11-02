@@ -1113,9 +1113,10 @@ def _busquedas(con) -> list[dict]:
 
 
 def historial_corridas(con) -> list[dict]:
-    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes}."""
+    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes, avisos}."""
     return [{"id": b["id"], "inicio": b["inicio"], "fin": b["fin"], "nuevas": b["nuevas"],
-             "fuentes": _como_lista(b["detalle"].get("fuentes"))} for b in _busquedas(con)]
+             "fuentes": _como_lista(b["detalle"].get("fuentes")),
+             "avisos": _como_lista(b["detalle"].get("avisos"))} for b in _busquedas(con)]
 
 
 def corrida_de(detectada_en, corridas: list[dict]):
