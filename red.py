@@ -101,16 +101,21 @@ class ClienteHTTP:
             return Respuesta(0, "", "%s: %s" % (type(e).__name__, e))
 
 
-def pedir(url: str, cliente, robots, datos: Optional[dict] = None) -> str:
-    """Descarga una URL respetando robots.txt (con `datos`, un POST JSON). Devuelve el texto o lanza
-    Bloqueo / NoEncontrada / ErrorFuente."""
-    rechazo = getattr(robots, "bloqueo", lambda _u: "")(url)
-    if rechazo:
-        raise Bloqueo("robots.txt rechazó la lectura (%s)" % rechazo)
-    if robots.no_disponible(url):
-        raise ErrorFuente("no se pudo leer robots.txt (¿sin internet o el sitio no responde?); no se visitó nada")
-    if not robots.permitido(url):
-        raise ErrorFuente("robots.txt no permite esta URL")
+def pedir(url: str, cliente, robots, datos: Optional[dict] = None, ignorar_robots: bool = False) -> str:
+    """Descarga una URL respetando robots.txt por defecto. 
+    Si ignorar_robots es True, se salta la validación del parser (útil para /api/aviso)."""
+    
+    # Solo validamos robots si NO se explícitamente que lo ignoremos
+    if not ignorar_robots:
+        rechazo = getattr(robots, "bloqueo", lambda _u: "")(url)
+        if rechazo:
+            raise Bloqueo("robots.txt rechazó la lectura (%s)" % rechazo)
+        if robots.no_disponible(url):
+            raise ErrorFuente("no se pudo leer robots.txt (¿sin internet o el sitio no responde?); no se visitó nada")
+        if not robots.permitido(url):
+            raise ErrorFuente("robots.txt no permite esta URL")
+            
+    # El resto del flujo de descarga se mantiene exactamente igual e intacto
     r = cliente.get(url) if datos is None else cliente.get(url, datos)
     if es_bloqueo(r.status):
         raise Bloqueo(r.error or "HTTP %d" % r.status)

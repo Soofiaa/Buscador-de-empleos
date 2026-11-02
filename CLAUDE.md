@@ -24,6 +24,8 @@ en producción, lo aprobado y lo pendiente.
   principal | sin_descripcion | fuera_perfil | sospechosa | descartada. `sin_descripcion` = oferta de una fuente sin
   texto (Glassdoor/Jooble/LinkedIn) que llegó vacía; experiencia y nivel los revisa Sofia en la página. LinkedIn pide
   el detalle con JobSpy (`fetch_description`) por decisión de Sofia (30-10-2026), aunque su robots.txt lo prohíbe.
+  Otra excepción, por decisión de Sofia: `rellenar_aviso.desde_url` no revisa robots.txt solo para los portales de
+  `rellenar_aviso.PORTALES_TRABAJO` (cuando ella pega un enlace a mano). Cualquier otro sitio sí se revisa.
 - `config.py`: perfil, reglas de clasificación, rutas (`JT_DB`, `JT_RESPALDOS`).
 - `servidor.py`: HTTP (ThreadingHTTPServer), rutas /api/*, Host/Origin locales, límites de cuerpo por ruta.
 - `web/pagina.html`: la página (informe.PAGINA la lee). Funciones puras entre `// <puras>` y `// </puras>`.

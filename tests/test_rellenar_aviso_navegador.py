@@ -1,4 +1,4 @@
-"""rellenar_aviso con navegador: solo se abre si robots.txt permitió la URL y la página llegó vacía (JavaScript)."""
+"""rellenar_aviso con navegador: se abre solo si la página llegó vacía (JavaScript). Pedir el aviso no revisa robots.txt."""
 import sys
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -8,7 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import rellenar_aviso
-from red import Bloqueo, ErrorFuente
+from red import Bloqueo, ErrorFuente, Respuesta
 
 PAGINA_JS = b"""<html><body><div id="x"></div><script>
 document.getElementById('x').innerHTML = '<h1>Analista de Datos Junior</h1><p>Empresa Acme, Santiago, Chile. ' + 'Buscamos profesional con SQL y Python para reportes de gestion. '.repeat(8) + '</p>';
@@ -29,16 +29,30 @@ class Robots:
         return not self.bloqueado
 
 
-def test_no_abre_navegador_si_robots_no_permite(monkeypatch):
-    llamado = []
-    monkeypatch.setattr(rellenar_aviso, "html_con_navegador", lambda u: llamado.append(u) or "")
+class Cliente:
+    def __init__(self, html):
+        self.html = html
+
+    def get(self, url, datos=None):
+        return Respuesta(200, self.html)
+
+
+def test_portal_de_empleo_no_consulta_robots_txt(monkeypatch):
+    """En un portal de empleo, el aviso se lee aunque robots.txt lo prohíba (decisión de Sofia; ver desde_url)."""
+    monkeypatch.setattr(rellenar_aviso, "html_con_navegador", lambda u: pytest.fail("no debía abrir navegador"))
+    monkeypatch.setattr(rellenar_aviso.ia, "extraer_aviso", lambda t: {"titulo": "X", "empresa": "Y"})
+    html = "<body>" + "<p>texto suficiente del aviso</p>" * 20 + "</body>"
+    r = rellenar_aviso.desde_url("https://cl.indeed.com/viewjob?jk=1", Cliente(html), Robots(bloqueado=True))
+    assert r["empresa"] == "Y"
+
+
+def test_otro_sitio_sigue_respetando_robots_txt():
     with pytest.raises(Bloqueo):
-        rellenar_aviso.desde_url("https://ejemplo.cl/1", None, Robots(bloqueado=True))
-    assert llamado == []
+        rellenar_aviso.desde_url("https://ejemplo.cl/1", Cliente("<body>x</body>"), Robots(bloqueado=True))
 
 
 def test_pagina_vacia_usa_navegador_y_luego_la_ia(monkeypatch):
-    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r: "<html><body><div id=x></div></body></html>")
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r, **_: "<html><body><div id=x></div></body></html>")
     monkeypatch.setattr(rellenar_aviso, "html_con_navegador",
                         lambda u: "<html><body><h1>Analista QA</h1>" + "<p>texto del aviso</p>" * 30 + "</body></html>")
     visto = {}
@@ -49,7 +63,7 @@ def test_pagina_vacia_usa_navegador_y_luego_la_ia(monkeypatch):
 
 
 def test_pagina_con_texto_no_abre_navegador(monkeypatch):
-    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r: "<body>" + "<p>texto suficiente del aviso</p>" * 20 + "</body>")
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r, **_: "<body>" + "<p>texto suficiente del aviso</p>" * 20 + "</body>")
     monkeypatch.setattr(rellenar_aviso, "html_con_navegador", lambda u: pytest.fail("no debía abrir navegador"))
     monkeypatch.setattr(rellenar_aviso.ia, "extraer_aviso", lambda t: {"titulo": "X", "empresa": "Y"})
     assert rellenar_aviso.desde_url("https://ejemplo.cl/1", None, Robots())["empresa"] == "Y"

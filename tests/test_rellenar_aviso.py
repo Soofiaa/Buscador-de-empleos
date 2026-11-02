@@ -73,7 +73,7 @@ def test_texto_visible_no_incluye_scripts():
 
 def test_sin_jobposting_la_ia_lee_la_pagina_que_se_pidio(monkeypatch):
     texto_largo = "<body><h1>Analista QA</h1><p>Santiago</p>" + "<p>detalle del cargo</p>" * 30 + "</body>"
-    monkeypatch.setattr(rellenar_aviso, "pedir", lambda url, c, r: texto_largo)
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda url, c, r, **_: texto_largo)
     monkeypatch.setattr(rellenar_aviso, "html_con_navegador", lambda u: pytest.fail("no debía abrir navegador"))
     visto = {}
     def falsa_ia(texto):
@@ -85,7 +85,7 @@ def test_sin_jobposting_la_ia_lee_la_pagina_que_se_pidio(monkeypatch):
 
 
 def test_si_la_ia_no_encuentra_cargo_ni_empresa_es_error(monkeypatch):
-    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r: "<body>" + "<p>texto suficiente</p>" * 40 + "</body>")
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda u, c, r, **_: "<body>" + "<p>texto suficiente</p>" * 40 + "</body>")
     monkeypatch.setattr(rellenar_aviso.ia, "extraer_aviso",
                         lambda t: {"titulo": "", "empresa": "", "ubicacion": "", "modalidad": "", "sueldo": ""})
     try:
@@ -96,7 +96,7 @@ def test_si_la_ia_no_encuentra_cargo_ni_empresa_es_error(monkeypatch):
 
 
 def test_si_la_ia_falla_el_error_llega_al_usuario(monkeypatch):
-    monkeypatch.setattr(rellenar_aviso, "pedir", lambda url, c, r: "<body>texto</body>")
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda url, c, r, **_: "<body>texto</body>")
     monkeypatch.setattr(rellenar_aviso.ia, "extraer_aviso", lambda t: {"error": "sin API Key"})
     try:
         rellenar_aviso.desde_url("https://x.cl/1", None, None)

@@ -18,6 +18,9 @@ LIMITE_HTML = 1_500_000
 MINIMO_TEXTO = 300          # menos que esto: la página llegó vacía y el contenido lo pinta JavaScript
 TIEMPO_NAVEGADOR_MS = 20_000
 MODALIDADES = ("Remoto", "Híbrido", "Presencial")
+# Portales de empleo donde el aviso se pide sin revisar robots.txt (decisión de Sofia). Cualquier otro sitio sí se revisa.
+PORTALES_TRABAJO = ("indeed.com", "linkedin.com", "glassdoor.com", "bne.cl", "trabajando.cl", "chiletrabajos.cl",
+                    "chumi.cl", "laborum.cl", "getonboard.com")
 
 
 def _limpio(s) -> str:
@@ -145,7 +148,7 @@ def desde_base(con, url: str):
 
 def html_con_navegador(url: str) -> str:
     """Abre el aviso en un Chromium sin ventana y devuelve el HTML ya renderizado. Solo se llama DESPUÉS de que
-    pedir() confirmó que robots.txt permite la URL. Solo carga recursos del mismo sitio."""
+    Solo carga recursos del mismo sitio. No revisa robots.txt: lo usa desde_url, que ya leyó la página."""
     try:
         from playwright.sync_api import sync_playwright
     except ImportError:
@@ -175,11 +178,13 @@ def html_con_navegador(url: str) -> str:
 
 def desde_url(url: str, cliente, robots) -> dict:
     """Saca los datos del aviso, en este orden:
-      1. HTML normal (pedir: robots.txt + pausa). Si trae JSON-LD, listo.
+      1. HTML normal (pedir sin revisar robots.txt, con pausa). Si trae JSON-LD, listo.
       2. Si la página llega vacía (JavaScript), un navegador la renderiza; después se prueba el JSON-LD otra vez.
       3. Lo que quede de texto visible se le pasa a la IA.
     Propaga Bloqueo, NoEncontrada y ErrorFuente."""
-    html = pedir(url, cliente, robots)           # aquí se revisa robots.txt; sin permiso no se llega a ningún paso
+    host = urlsplit(url).hostname or ""
+    en_portal = any(host == d or host.endswith("." + d) for d in PORTALES_TRABAJO)
+    html = pedir(url, cliente, robots, ignorar_robots=en_portal)     # robots.txt solo se salta en portales de empleo
     try:
         return parsear_aviso(html)
     except ErrorFuente:
