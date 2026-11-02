@@ -168,14 +168,15 @@ Campos manuales de cada oferta: notas (≤ 5000), sueldo anotado, prioridad manu
 Orden de lo que se intenta:
 
 1. **Base de datos:** si el link ya está guardado (lo trajo una búsqueda), se usan esos datos. No se visita nada.
-2. **HTML normal** con `robots.txt` y pausa. Si trae JSON-LD `JobPosting`, se usa.
-3. **Navegador (Playwright)**, solo si la página llegó vacía (contenido pintado con JavaScript) y `robots.txt`
-   lo permitió. Se abre sin ventana, solo carga recursos del mismo sitio.
+2. **HTML normal** con pausa. En portales de empleo (`rellenar_aviso.PORTALES_TRABAJO`) no se revisa `robots.txt`
+   (decisión de Sofia); en otros sitios sí, y si lo prohíbe, no se pide. Si trae JSON-LD `JobPosting`, se usa.
+3. **Navegador (Playwright)**, solo si la página llegó vacía (contenido pintado con JavaScript). Se abre sin ventana,
+   solo carga recursos del mismo sitio.
 4. **IA (Groq)** lee el texto visible de esa página y devuelve cargo, empresa, ubicación, modalidad y sueldo.
    Si no encuentra cargo ni empresa, es error.
 5. **Pegar el texto** (`POST /api/aviso/ia`): si todo lo anterior falla, pegas el aviso y la IA lo ordena.
 
-Límite que no se cruza: si `robots.txt` prohíbe la URL (Indeed, LinkedIn y otros), no se lee el sitio.
+Límite que no se cruza: fuera de los portales de empleo de la lista, si `robots.txt` prohíbe la URL, no se lee el sitio.
 
 ---
 
@@ -252,7 +253,8 @@ instalado).
 
 Estas reglas vienen de decisiones previas y no se cambian sin acuerdo:
 
-- Se consulta `robots.txt` de cada sitio antes de pedir una página. Si prohíbe la URL, no se pide.
+- Se consulta `robots.txt` de cada sitio antes de pedir una página. Si prohíbe la URL, no se pide. Excepción: el
+  autocompletar desde un link de un portal de empleo de la lista (ver «Autocompletar desde el link»).
 - Pausa aleatoria entre peticiones (3 a 5 s en portales; más en LinkedIn y Glassdoor).
 - Ante 401, 403, 429 o un CAPTCHA, el sitio se detiene por la corrida. No se reintenta ni se esquiva.
 - User-Agent que dice quién es (no se disfraza).

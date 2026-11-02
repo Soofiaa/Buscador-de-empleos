@@ -893,4 +893,4 @@ docker compose up -d --no-build
 ```
 
 **Qué se pierde al volver:** vuelve a revisar `robots.txt` en todos los enlaces de `/api/aviso`, incluidos los portales de empleo. No se pierden ofertas ni estados.
-Reversión probada en copia (imagen anterior abre la base de referencia con integrity_check ok, solo lectura, sin red).
+Reversión probada en copia (volumen temporal `jt_reversion_robots`, puerto 8767): la imagen anterior quedó healthy; `/`, `/api/estado`, `/api/ofertas` y `/api/respaldo` respondieron 200; huellas RESULTADO OK. Contenedor y volumen temporales borrados.
