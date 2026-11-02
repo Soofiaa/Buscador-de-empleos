@@ -818,6 +818,43 @@ def _intercalar(plan: list, sitio: str) -> list:
     return salida + pendientes
 
 
+def _en_hilo(fn, *args):
+    """Corre fn en otro hilo. La salida y el grupo son locales de hilo: el hilo nuevo hereda los del que lo lanza.
+    Devuelve (hilo, resultado): el resultado queda en res["ok"] o res["error"] cuando termina el hilo."""
+    salida_fn, grupo = getattr(salida_del_hilo, "fn", salida), getattr(grupo_del_hilo, "id", None)
+    res = {}
+    def correr():
+        salida_del_hilo.fn, grupo_del_hilo.id = salida_fn, grupo
+        try:
+            res["ok"] = fn(*args)
+        except Exception as e:
+            res["error"] = e
+    hilo = threading.Thread(target=correr, name=fn.__name__)
+    hilo.start()
+    return hilo, res
+
+
+def _portales(ruta_db, activos, stats, avisos, tele, ahora, ventanas) -> int:
+    """BNE, Trabajando, Chiletrabajos, Chumi y Laborum, en orden, en su propio hilo. Tiene su propia conexión a la base
+    (sqlite no se comparte entre hilos). Un fallo de un portal no corta a los demás."""
+    con = _abrir(ruta_db)
+    cliente, robots, total = ClienteHTTP(), GestorRobots(USER_AGENT_HTTP), 0
+    try:
+        for sitio in activos:
+            anotar = (lambda status, t=tele[sitio]: telemetria.anotar_status(t, status))
+            cliente.al_responder = robots.al_responder = anotar       # el robots.txt de cada sitio cuenta para él
+            try:                          # un fallo inesperado de un portal no corta la corrida ni deja de registrarla
+                total += _buscar_portal(con, sitio, stats[sitio], avisos, cliente, robots, ahora, ventanas[sitio],
+                                        tele=tele[sitio])
+            except Exception as e:
+                stats[sitio]["errores"] += 1
+                avisos.append(f"⚠ {config.NOMBRE_FUENTE[sitio]} falló: {type(e).__name__}: {e}. Se siguió con las demás.")
+                _say(f"  ! [{sitio}] {type(e).__name__}: {e}")
+    finally:
+        con.close()
+    return total
+
+
 def buscar_ofertas(con, fuentes=None) -> int:
     from jobspy import scrape_jobs  # import aquí: los tests no lo necesitan
     _vigilar_429()
@@ -854,6 +891,11 @@ def buscar_ofertas(con, fuentes=None) -> int:
     for s in sorted(sin_clave & set(sitios)):
         avisos.append(f"{config.NOMBRE_FUENTE[s]} no se consultó: falta la clave ({s.upper()}_KEY) en el entorno.")
     plan = [p for p in plan if p[0] not in sin_clave]
+    # los portales van en su propio hilo mientras JobSpy y las APIs siguen aquí (ver _portales)
+    activos = [s for s in sitios if s in PORTALES]
+    hilo_portales, res_portales = _en_hilo(
+        _portales, con.execute("PRAGMA database_list").fetchone()[2], activos, stats, avisos, tele, ahora, ventanas
+    ) if activos else (None, {})
     frenadas = set()
     descartados = set()          # (sitio, término, lugar) que fallaron o dieron 0 en esta corrida: no se repiten
     for n, (sitio, termino, lugar) in enumerate(plan, start=1):
@@ -905,19 +947,12 @@ def buscar_ofertas(con, fuentes=None) -> int:
              + (f", {plural(antiguas, 'antigua omitida', 'antiguas omitidas')}" if antiguas else ""))
         time.sleep(_pausa_jobspy(sitio))
 
-    activos = [s for s in sitios if s in PORTALES]
-    if activos:
-        cliente, robots = ClienteHTTP(), GestorRobots(USER_AGENT_HTTP)
-        for sitio in activos:
-            anotar = (lambda status, t=tele[sitio]: telemetria.anotar_status(t, status))
-            cliente.al_responder = robots.al_responder = anotar       # el robots.txt de cada sitio cuenta para él
-            try:                          # un fallo inesperado de un portal no corta la corrida ni deja de registrarla
-                total += _buscar_portal(con, sitio, stats[sitio], avisos, cliente, robots, ahora, ventanas[sitio],
-                                        tele=tele[sitio])
-            except Exception as e:
-                stats[sitio]["errores"] += 1
-                avisos.append(f"⚠ {config.NOMBRE_FUENTE[sitio]} falló: {type(e).__name__}: {e}. Se siguió con las demás.")
-                _say(f"  ! [{sitio}] {type(e).__name__}: {e}")
+    if hilo_portales is not None:
+        hilo_portales.join()
+        if "error" in res_portales:           # no debería pasar: _portales atrapa cada portal; esto cubre la conexión
+            avisos.append(f"⚠ Los portales fallaron: {type(res_portales['error']).__name__}: {res_portales['error']}")
+        else:
+            total += res_portales.get("ok", 0)
 
     _say("\nPor fuente (encontradas / relevantes nuevas / descartadas por no ser Chile / errores / antiguas omitidas):")
     for sitio, st in stats.items():
