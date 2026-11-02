@@ -1,5 +1,36 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 02-11-2026 (commit `f862ee9`, rama `feat/unificar-ofertas`)
+
+Cambia solo: lista de términos de Trabajando (sin 404), avisos ⚠ por término en consola y descarte de término+ubicación
+que falla o da 0 en la corrida. No cambia el esquema (v7) ni reclasifica nada.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:eaf44072515b99e41ffefe29f9044d5e114c995b9766915b49c9bbfd3f29a4c6` |
+| Imagen anterior | `job-tracker:respaldo-20261102`, `sha256:70ff4f4e6aed` (id corto; comprobar con `docker images`) |
+| Base de referencia | `ofertas_pre_trabajando_terminos_20261102.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `24e3ed80986999750c2e841ee235d9e938230e5d51bdb1f93986c072e354b84d`; `integrity_check=ok` |
+| Línea base | SQLite v7; 7836 ofertas, 104 corridas, 501 filas en `historial_estados`, 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:respaldo-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Comprobar GET `/api/estado` y las huellas de `/datos/ofertas.db` contra la referencia. Se pierde: los avisos ⚠ por
+término y la lista nueva de Trabajando (vuelve a pedir `analista-de-procesos` y `desarrollador-python`, que dan 404).
+
+Prueba de reversión: copia de la base en un volumen temporal (`jt_revision_reversion`): versión 7, integridad ok,
+7836 ofertas. Volumen borrado después.
+
+---
+
 Despliegue del 29-10-2026, commits `b723f1f`, `cdf5c0c`, `72ca06a` (rama `feat/unificar-ofertas`). No cambia el esquema ni reclasifica ofertas guardadas. Solo cambia: NOTAS.md compacto, avisos de fuentes sin clave o en 0 en la página, y ruta por defecto de base local fuera de OneDrive.
 
 | Pieza | Valor |

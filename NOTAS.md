@@ -7,8 +7,11 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: aviso de robots.txt solo en portales de empleo (02-11-2026)**, commit `2eaa620` (rama `feat/unificar-ofertas`, con push).
-  Imagen `job-tracker-jobtracker:latest` = `sha256:d040818e4403cfc928d44a8386c23939656b14ceccbab66cc45aeb8531d69d97`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-rellenar-robots-20261102` (`sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`).
+- **Vigente: avisos ⚠ por término y lista de Trabajando sin 404 (02-11-2026)**, commit `f862ee9` (rama `feat/unificar-ofertas`, con push).
+  Imagen `job-tracker-jobtracker:latest` = `sha256:eaf44072515b99e41ffefe29f9044d5e114c995b9766915b49c9bbfd3f29a4c6`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:respaldo-20261102`. Reversión en `REVERSION_FASE_A.md`.
+  Referencia: `ofertas_pre_trabajando_terminos_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `24e3ed80986999750c2e841ee235d9e938230e5d51bdb1f93986c072e354b84d`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK. Salida al detener: 0. Sin cambios de esquema.
+- Anterior: aviso de robots.txt solo en portales de empleo (02-11-2026), commit `2eaa620`.
+  Imagen `job-tracker-jobtracker:latest` = `sha256:d040818e4403cfc928d44a8386c23939656b14ceccbab66cc45aeb8531d69d97`. Imagen anterior: `job-tracker:pre-rellenar-robots-20261102` (`sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`).
   Referencia: `ofertas_pre_rellenar_robots_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `41AA85F9471AC98CF7088C5FFFD854160671B51B5CF803AB4C55C06BE2C1879C`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK. Salida al detener: 0. Sin cambios de esquema.
 - Anterior: avisos y errores por fuente en cada búsqueda del historial (02-11-2026), commit `6a83fab`.
   Imagen `job-tracker-jobtracker:latest` = `sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`,
