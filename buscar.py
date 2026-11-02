@@ -663,8 +663,10 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
     mod, nombre = PORTALES[sitio], config.NOMBRE_FUENTE[sitio]
     ahora, dias = ahora or ahora_chile(), dias or config.MAX_ANTIGUEDAD_DIAS.get(sitio, 1)
     terminos = _terminos_portal(sitio)
-    frames, seguidos, sin_pagina = [], 0, []
+    frames, seguidos, sin_pagina, descartados = [], 0, [], set()   # descartados: fallaron o dieron 0 en esta corrida
     for i, termino in enumerate(terminos, start=1):
+        if termino in descartados:
+            continue
         if sitio == "trabajando" and _termino_recordado_404(con, sitio, termino):
             sin_pagina.append(termino)
             continue
@@ -676,13 +678,15 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
         except NoEncontrada:
             _recordar_404(con, sitio, termino)
             sin_pagina.append(termino)
-            _say(f"  [{sitio} {i}/{len(terminos)}] {termino}: sin página en el sitio "
-                 f"(se recuerda {plural(config.DIAS_RECORDAR_404, 'día', 'días')})")
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: sin página en el sitio "
+                 f"(se recuerda {plural(config.DIAS_RECORDAR_404, 'día', 'días')}; se descarta en esta corrida)")
             continue
         except ErrorFuente as e:
             st["errores"] += 1
             seguidos += 1
-            _say(f"  ! [{sitio}] {termino}: {e}")
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: error ({e}); se descarta en esta corrida")
             if seguidos >= config.ERRORES_SEGUIDOS_PARA_ABORTAR:
                 avisos.append(f"⚠ {nombre}: {seguidos} errores seguidos; se dejó de insistir en esta corrida.")
                 break
@@ -690,6 +694,10 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
         seguidos = 0
         if tele is not None:
             telemetria.anotar_si_vacio(tele, df)            # tolerante: con df None o raro no lanza
+        if df is None or len(df) == 0:
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: 0 resultados; se descarta en esta corrida")
+            continue
         df, antiguas = recientes(df, sitio, ahora, dias)   # antes de clasificar y de abrir detalles
         st["encontradas"] += len(df)
         st["antiguas"] = st.get("antiguas", 0) + antiguas
@@ -847,6 +855,7 @@ def buscar_ofertas(con, fuentes=None) -> int:
         avisos.append(f"{config.NOMBRE_FUENTE[s]} no se consultó: falta la clave ({s.upper()}_KEY) en el entorno.")
     plan = [p for p in plan if p[0] not in sin_clave]
     frenadas = set()
+    descartados = set()          # (sitio, término, lugar) que fallaron o dieron 0 en esta corrida: no se repiten
     for n, (sitio, termino, lugar) in enumerate(plan, start=1):
         etiqueta = f"{termino} | {lugar}"
         st = stats[sitio]
@@ -859,6 +868,8 @@ def buscar_ofertas(con, fuentes=None) -> int:
                               "resto de esta corrida. No se insiste.")
                 _say(f"  ! [{sitio}] 429: se deja por esta corrida")
             continue
+        if (sitio, termino, lugar) in descartados:
+            continue
         try:
             if sitio in APIS_REMOTAS:
                 df = APIS_REMOTAS[sitio].buscar(termino, config.RESULTADOS_POR_BUSQUEDA,
@@ -867,11 +878,15 @@ def buscar_ofertas(con, fuentes=None) -> int:
                 df = scrape_jobs(**consulta(sitio, termino, lugar, dias=ventanas[sitio]))
         except Exception as e:
             st["errores"] += 1
+            descartados.add((sitio, termino, lugar))
             if sitio not in APIS_REMOTAS:             # las APIs ya anotaron cada solicitud con su status
                 telemetria.anotar_excepcion(t, e, lugar)
-            _say(f"  ! [{sitio}] {etiqueta}: {type(e).__name__}: {e}")
+            _say(f"  ⚠ [{sitio}] {etiqueta}: falló ({type(e).__name__}: {e}); se descarta en esta corrida")
             continue
         vacia = df is None or len(df) == 0
+        if vacia:
+            descartados.add((sitio, termino, lugar))
+            _say(f"  ⚠ [{sitio}] {etiqueta}: 0 resultados; se descarta en esta corrida")
         if sitio in APIS_REMOTAS:
             if vacia:
                 telemetria.anotar_vacia(t)

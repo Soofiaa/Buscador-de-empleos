@@ -25,7 +25,8 @@ def test_el_termino_va_en_indeed_secundarios_y_chiletrabajos_con_su_convencion_d
     assert "informático jr" in config.TERMINOS_SECUNDARIOS
     assert "informatico junior" in config.TERMINOS_CHILETRABAJOS         # va en la URL: sin tilde
     assert "informatico jr" in config.TERMINOS_CHILETRABAJOS
-    assert not any("informatic" in t for t in config.TERMINOS_BNE + config.TERMINOS_TRABAJANDO)   # 0 resultados / 404
+    assert not any("informatic" in t for t in config.TERMINOS_BNE)   # 0 resultados en BNE
+    assert "informatico" in config.TERMINOS_TRABAJANDO               # verificado 200 el 2-11 (antes daba 404)
 
 
 def test_cada_termino_junior_tiene_variante_jr():

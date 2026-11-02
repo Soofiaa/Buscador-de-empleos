@@ -37,19 +37,6 @@ TERMINOS_B = [  # roles puente (no TI)
 # con la ubicación escrita ("Santiago, Chile"). Es un rodeo: ver probar_fuentes.py.
 # Google está desactivado: JobSpy recibe "Google returned no job data" (probado 2026-10-10).
 # Para reintentarlo, agrégalo a la lista: SITIOS = ["indeed", "glassdoor", "google"]
-# Lista optimizada para LinkedIn: solo los puestos que históricamente traen resultados
-TERMINOS_LINKEDIN = [
-    "analista funcional", "QA", "tester", "analista de sistemas",
-    "desarrollador python", "desarrollador backend", "analista de procesos",
-    "datos maestros", "analista de datos junior", "analista de datos jr",
-    "informático junior", "informático jr",
-    "data engineer junior", "data engineer jr", "analista BI junior", "analista BI jr",
-    "devops junior", "devops jr",
-    "analista de calidad", "analista de mejora",
-    "analista de requerimientos junior", "analista de requerimientos jr",
-    "soporte TI", "help desk", "business analyst", "datos maestros"
-]
-
 SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "jooble", "weworkremotely", "arbeitnow"]
 
 # himalayas / jobicy: APIs públicas de empleo remoto (ver himalayas.py y jobicy.py). Traen el listado reciente en una
@@ -142,8 +129,8 @@ TERMINOS_BNE = ["ocupacion:7643", "analista funcional", "analista de procesos", 
                 "calidad de software", "automatizacion de pruebas",
                 "control de gestion", "analista de operaciones", "datos maestros", "mejora continua"]
 # Trabajando: solo existen las páginas /trabajo-<término> que el sitio tiene; si no, 404 (se recuerda 30 días).
-TERMINOS_TRABAJANDO = ["analista-funcional", "analista-de-procesos", "analista-qa", "analista-programador",
-                       "desarrollador-backend", "programador", "desarrollador-python"]   # los 3 últimos, sin verificar
+TERMINOS_TRABAJANDO = ["analista-funcional", "analista-qa", "analista-programador",
+                       "desarrollador-backend", "programador", "devops", "informatico"]   # verificados el 2-11: 200 (sin 404)
 TERMINOS_CHILETRABAJOS = ["analista funcional", "analista de procesos", "analista qa", "tester",
                           "analista programador", "desarrollador junior", "desarrollador jr", "analista de datos",
                           "analista de reporteria", "control de gestion", "analista de operaciones", "datos maestros",
