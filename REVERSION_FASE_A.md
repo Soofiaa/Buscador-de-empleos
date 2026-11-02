@@ -854,3 +854,22 @@ docker compose up -d --no-build
 
 **Qué se pierde al volver:** vuelve la pestaña «Explorar remotos» y el historial vuelve a mostrar la normal y la de remotos como dos búsquedas. La columna `grupo` queda en la base (la versión anterior la ignora). No se pierden ofertas, estados ni búsquedas nuevas hechas después del despliegue solo si se vuelve desde una base de antes; hacerlo solo si no hubo cambios desde el 02-11-2026.
 Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200, `/api/ofertas` con las 99 corridas y `integrity_check` ok. Volumen temporal borrado.
+
+## Avisos y errores por fuente en cada búsqueda (02-11-2026)
+
+Commit `6a83fab`: al elegir una búsqueda del historial, el panel de fuentes muestra también sus avisos (429, bloqueos, detalles).
+Sin cambios de esquema. Imagen anterior: `job-tracker:pre-avisos-historial-20261102` (`sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`.
+Referencia: `ofertas_pre_avisos_historial_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\` y `C:\Users\sofia\Respaldos\job-tracker\`), sha256 `21192B62C912A42B241A065CDA81C58EC636F8B90774277E9333E551C9723E45`, integrity_check ok. Salida al detener: 0.
+Huellas: RESULTADO OK, ninguna tabla cambió.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-avisos-historial-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** no se ven los avisos de las búsquedas anteriores en el panel del historial (la última búsqueda sí los sigue mostrando). No se pierden ofertas, estados ni búsquedas.
+Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200. Volumen temporal borrado.

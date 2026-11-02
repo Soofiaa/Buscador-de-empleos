@@ -7,7 +7,12 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026)**, commit `e9ef00f`
+- **Vigente: avisos y errores por fuente en cada búsqueda del historial (02-11-2026)**, commit `6a83fab` (rama `feat/unificar-ofertas`, con push).
+  Imagen `job-tracker-jobtracker:latest` = `sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`,
+  healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-avisos-historial-20261102` (`sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`).
+- Referencia: `ofertas_pre_avisos_historial_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `21192B62C912A42B241A065CDA81C58EC636F8B90774277E9333E551C9723E45`, integrity_check ok.
+  Huellas ANTES y DESPUÉS: RESULTADO OK, ninguna tabla cambió. Salida al detener: 0. Sin cambios de esquema.
+- Anterior: remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026), commit `e9ef00f`.- **Vigente: remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026)**, commit `e9ef00f`
   (rama `feat/unificar-ofertas`, con push). Imagen `job-tracker-jobtracker:latest` = `sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`,
   healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-unificar-20261102` (`sha256:cb958d1f…`).
 - Referencia: `ofertas_pre_unificar_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `1799E7F7…`, integrity_check ok.
@@ -61,6 +66,7 @@ manda lo más reciente y corrige la nota.
 - **Pregunta abierta:** «Ofertas 0» con «2 relevantes nuevas» en la página (ya pasaba antes del despliegue de avisos).
 - **Papelera de OneDrive:** los originales borrados el 14-10 siguen en la nube hasta que Sofia la vacíe a mano.
 - **Base local en OneDrive:** `ofertas.db` en la carpeta del proyecto está dentro de OneDrive. Sin decisión aún.
+
 
 
 
