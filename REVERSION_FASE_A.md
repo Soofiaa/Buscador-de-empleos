@@ -1,5 +1,32 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 03-11-2026 (commit `259828e`, rama `feat/unificar-ofertas`): Glassdoor solo en Santiago
+
+Cambia solo: Glassdoor consulta solo Santiago (antes Santiago, Viña y Remoto). Motivo: una corrida de 17 minutos con
+58 de 75 consultas de Glassdoor vacías. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893` |
+| Imagen anterior | `job-tracker:pre-glassdoor-santiago-20261103`, `sha256:a2784e2378d4616fde4b1910a9c4d8895aa69e1d89a9db491d5297599459e2a6` |
+| Base de referencia | `ofertas_pre_glassdoor_santiago_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `2b4168796f1ab9fdc6c634903be6f940aa5923aff70d22470e082542cb62eae2`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8174 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-glassdoor-santiago-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: las consultas de Glassdoor en Viña del Mar y Remoto.
+
+---
+
 ## Despliegue del 03-11-2026 (commit `74bf1b1`, rama `feat/unificar-ofertas`): LinkedIn con 10 resultados y ventana fija
 
 Cambia solo: LinkedIn pide 10 resultados por consulta (antes 30) y su ventana no se amplía cuando pasan días sin
