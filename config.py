@@ -121,7 +121,7 @@ CUES_CHILE = r"chile|\bcl\b|metropolitana|valparaiso|vina del mar|\brm\b|\bvs\b"
 
 # Viña del Mar cubre la Región de Valparaíso por el radio de búsqueda de Indeed
 # (supuesto: si ves que faltan ofertas de Valparaíso, agrégalo aquí).
-UBICACIONES = ["Santiago, Chile", "Viña del Mar, Chile"]
+UBICACIONES = ["Santiago, Chile"]   # Viña del Mar fuera (3-11): casi siempre vacía, pedido de Sofía
 INCLUIR_REMOTO = True
 REGIONES_VALIDAS = {"RM", "VS"}   # presencial/híbrido solo en estas regiones
 

@@ -154,4 +154,4 @@ def test_la_telemetria_recibe_el_status(con_clave, monkeypatch):
     vistos = []
     monkeypatch.setattr(jooble.requests, "post", lambda *a, **k: Respuesta(200, {"jobs": [aviso(3)]}))
     jooble.buscar(termino="qa", resultados=10, al_responder=vistos.append)
-    assert vistos == [200, 200]                                     # una por ciudad
+    assert vistos == [200]                                     # una por ciudad

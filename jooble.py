@@ -18,7 +18,7 @@ UA = "BuscaEmpleo/0.1 (busqueda personal de empleo)"
 PAUSA_ENTRE_TERMINOS = 2.0        # la cuota gratuita es limitada: se pide poco y espaciado
 TERMINOS = ["analista QA", "tester", "analista funcional", "analista de datos junior",
             "desarrollador python", "soporte TI"]
-UBICACIONES = ["Santiago, Chile", "Viña del Mar, Chile"]   # por país ("Chile") la API devuelve 0
+UBICACIONES = ["Santiago, Chile"]   # por país ("Chile") la API devuelve 0; Viña del Mar fuera (3-11, casi siempre vacía)
 COLUMNAS = ["job_url", "title", "company", "location", "description", "date_posted",
             "is_remote", "min_amount", "max_amount", "currency", "interval", "posted_at"]
 
