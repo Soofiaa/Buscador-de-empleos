@@ -9,7 +9,7 @@ siguen en la base.
 | Pieza | Valor |
 |---|---|
 | Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8` |
-| Imagen anterior | `job-tracker:pre-quitar-remotos-20261102` (la etiqueta de la imagen anterior de `f862ee9`, que es `job-tracker-jobtracker` en su último build) |
+| Imagen anterior | `job-tracker:pre-quitar-remotos-20261102` (la que corría antes de este despliegue: commit `638f143` del código de `893a3b7`, con Explorar remotos) |
 | Base de referencia | `ofertas_pre_quitar_remotos_20261102.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
 | SHA-256 de la referencia | `0d62b9b943c0c4ddbbfdb066936921994c8766b0bcbb1f6619de639ba6ca0a8c`; `integrity_check=ok` |
 | Línea base | SQLite v7; 7922 ofertas, 111 corridas, 501 filas en `historial_estados`, 46 postuladas y 6 POR VERIFICAR |
