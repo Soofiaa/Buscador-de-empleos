@@ -84,7 +84,7 @@ def test_ofertas_cuenta_las_sin_texto_pendientes_aunque_no_haya_otras():
 
 
 def test_lista_de_ofertas_muestra_sin_texto_aunque_la_principal_este_vacia():
-    assert "if (!filas.length && !sinTextoFilas.length && !remotosFilas.length) {" in PAGINA
+    assert "if (!filas.length && !sinTextoFilas.length) {" in PAGINA
     assert 'listaDe(S.datos, "sin_descripcion", S.sel).filter(pasa)' in PAGINA
 
 

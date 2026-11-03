@@ -517,11 +517,9 @@
 
     <div class="seccion-lateral">
       <button class="boton ancho" id="buscar" type="button">Buscar empleos</button>
-      <p class="nota">Búsqueda completa + exploración de remotos. Las plataformas se eligen en Ajustes.</p>
+      <p class="nota">Búsqueda de empleos. Las plataformas se eligen en Ajustes.</p>
       <div class="progreso" id="progreso" role="status" aria-live="polite"></div>
       <div class="barra" id="barra" role="progressbar" aria-label="Avance de la búsqueda" aria-valuemin="0" hidden><div class="barra-relleno" id="barra-relleno"></div><span class="barra-tiempo" id="barra-tiempo"></span></div>
-      <div class="progreso" id="progreso-explorar" role="status" aria-live="polite"></div>
-      <div class="barra" id="barra-explorar" role="progressbar" aria-label="Avance de la exploración" aria-valuemin="0" hidden><div class="barra-relleno" id="barra-relleno-explorar"></div><span class="barra-tiempo" id="barra-tiempo-explorar"></span></div>
       <details class="busquedas-manuales" id="busquedas-manuales" style="margin-top:8px; font-size:.8rem;">
         <summary title="Estos sitios no aceptan búsquedas automáticas: se abren en tu navegador">🔎 Buscar a mano</summary>
       </details>
@@ -1360,9 +1358,8 @@ function mostrarProgreso(e, sufijo = "", boton = "buscar", tipo = "buscar") {
     tiempo.textContent = "";
   }
   $(boton).disabled = !!e.buscando;
-  if (e.explorar) mostrarProgreso(e.explorar, "-explorar", "buscar", "explorar");
 }
-const algunaEnCurso = e => !!(e.buscando || (e.explorar && e.explorar.buscando));
+const algunaEnCurso = e => !!e.buscando;
 async function estado() {
   const r = await api("/api/estado");
   if (!r.ok) { pintarEstadoDb(null); return; }
@@ -1384,7 +1381,7 @@ async function estado() {
       pintarEstadoDb(x.json);
       mostrarProgreso(x.json);
       // si una de las dos terminó mientras la otra sigue, se recargan las ofertas igual
-      const termino = (antes.buscando && !x.json.buscando) || (antes.explorar && antes.explorar.buscando && !(x.json.explorar || {}).buscando);
+      const termino = antes.buscando && !x.json.buscando;
       antes = x.json;
       if (!algunaEnCurso(x.json)) { clearInterval(sondeo); sondeo = null; cargar(); }
       else if (termino) cargar();
@@ -1969,7 +1966,7 @@ $("btn-manual").addEventListener("click", e => abrirManual(e.currentTarget));
 
 // ---------- ayuda por pantalla: cambia según la pestaña activa (mismo diálogo que los demás: Esc cierra, el foco no sale)
 const AYUDA_PESTANA = {
-  ofertas: { titulo: "Ofertas", texto: "Las ofertas que la app considera relevantes y que aún no decidiste. Revisa cada una: abre el aviso con el título o con ↗, y cambia su estado desde la tarjeta. Si no te interesa, márcala como Descartada: sale de esta lista y queda en Descartadas. Si postulaste a una que la búsqueda no trajo, usa «➕ Agregar postulación manual» (arriba): si ya la tienes, la app te muestra la existente y te deja guardarla igual. Al final aparecen las «Sin texto»: ofertas cuya descripción no llegó (a veces pasa con LinkedIn, Glassdoor o Jooble). Pega la descripción en su tarjeta y la app la revisa. A la derecha, en «Remotos», van los roles remotos fuera de tu perfil TI que podrían calzarte; se gestionan igual que las de la izquierda." },
+  ofertas: { titulo: "Ofertas", texto: "Las ofertas que la app considera relevantes y que aún no decidiste. Revisa cada una: abre el aviso con el título o con ↗, y cambia su estado desde la tarjeta. Si no te interesa, márcala como Descartada: sale de esta lista y queda en Descartadas. Si postulaste a una que la búsqueda no trajo, usa «➕ Agregar postulación manual» (arriba): si ya la tienes, la app te muestra la existente y te deja guardarla igual. Al final aparecen las «Sin texto»: ofertas cuya descripción no llegó (a veces pasa con LinkedIn, Glassdoor o Jooble). Pega la descripción en su tarjeta y la app la revisa." },
   seguimiento: { titulo: "Seguimiento", texto: "Las ofertas en proceso (revisadas, postuladas o en entrevista). Arriba eliges cómo verlas: Tablero, Tarjetas o Compacta. En Tablero, arrastra cada tarjeta a su etapa, o usa «Mover a…». Cada movimiento tiene «Deshacer». Con «⚡ Gestionar proceso» anotas la fecha de postulación, la fase, las notas y el sueldo. Para agregar una postulación que no trajo la búsqueda, usa «➕ Agregar postulación manual»; si ya existe una con el mismo cargo y empresa, te ofrece verla o guardarla de todas formas." },
   metricas: { titulo: "Métricas", texto: "Indicadores sobre todas tus ofertas relevantes: cuántas postulaciones, cuántas respuestas, el embudo por etapa y los días promedio. Abajo hay desgloses por fuente, modalidad y tipo, y la actividad de las últimas semanas. Es solo lectura: para cambiar algo, ve a Ofertas o a Seguimiento." },
   ajustes: { titulo: "Ajustes", texto: "Tres secciones. Qué busco: los puestos y las ubicaciones que se piden a las fuentes, y las exclusiones (lo que nunca debe aparecer); los cambios se usan en la próxima búsqueda. Datos: CSV de Ofertas, CSV de Seguimiento, respaldo JSON y «Respaldar ahora». Apariencia y avisos: tema, contraste reforzado y avisos del navegador. Lo que eliges se recuerda en este navegador." },
@@ -2294,9 +2291,7 @@ function pintarLista() {
   if (vista() === "seguimiento" && S.vistaSeg === "tablero") { cont.replaceChildren(...cabecera, tableroSeguimiento(filas)); return; }
   // las «Sin texto» pendientes van al final de Ofertas, aunque no haya ninguna otra
   const sinTextoFilas = vista() === "ofertas" ? listaDe(S.datos, "sin_descripcion", S.sel).filter(pasa) : [];
-  // Ofertas: empleos a la izquierda y remotos (explorar) a la derecha
-  const remotosFilas = vista() === "ofertas" ? listaDe(S.datos, "explorar", S.sel).filter(pasa) : [];
-  if (!filas.length && !sinTextoFilas.length && !remotosFilas.length) {
+  if (!filas.length && !sinTextoFilas.length) {
     const msj = S.sel.tipo !== "todas" && !SIN_FILTRO_HISTORIAL.has(vista()) ? "No hay ofertas de esta selección en esta pestaña."
       : vista() === "ofertas" ? "No hay ofertas con estos filtros. Prueba «Buscar empleos» o relaja los filtros."
       : vista() === "descartadas_usuario" ? "No tienes ofertas descartadas manualmente."
@@ -2327,10 +2322,7 @@ function pintarLista() {
           + "Ábrelo con ↗ y márcalo; «❌ Descartada» no vuelve a aparecer."));
         elementos.push(...pintarItems(sinTextoFilas));
     }
-    const izquierda = [h("h3", { class: "grupo" }, "Empleos", h("span", { class: "cuenta" }, filas.length + sinTextoFilas.length)), ...elementos];
-    const derecha = [h("h3", { class: "grupo" }, "Remotos", h("span", { class: "cuenta" }, remotosFilas.length)),
-      ...(remotosFilas.length ? pintarItems(remotosFilas) : [h("div", { class: "vacio" }, "No hay remotos con estos filtros. Pulsa «Buscar empleos» para traer más.")])];
-    cont.replaceChildren(h("div", { class: "dos-cols" }, h("div", { class: "col-empleos" }, ...izquierda), h("div", { class: "col-remotos" }, ...derecha)));
+    cont.replaceChildren(h("div", { class: "col-empleos" }, h("h3", { class: "grupo" }, "Empleos", h("span", { class: "cuenta" }, filas.length + sinTextoFilas.length)), ...elementos));
     return;
   }
   let nota = null;

@@ -9,8 +9,6 @@
   GET  /api/estado        {buscando, mensaje, error, explorar: {buscando, mensaje, error}, corrida, total_ofertas}
                           (corrida = resumen de la última búsqueda)
   POST /api/buscar        inicia una búsqueda en segundo plano (409 si ya hay una en curso)
-  POST /api/explorar      «Explorar remotos» en segundo plano (409 si ya hay una exploración en curso); puede correr
-                          a la vez que /api/buscar. Sus ofertas llegan en /api/ofertas -> explorar
   POST /api/marcar        {"url", "estado", "fase" (opcional), "origen": tablero|lista|modal} -> {ok, anterior, actual}
                           con estado, fase y fecha_postulacion, escritos en UNA transacción y registrados en
                           historial_estados (la fecha se pone sola al pasar a postulada/entrevista si estaba vacía).
@@ -139,17 +137,13 @@ def _host_local(valor: str) -> bool:
 
 
 class Aplicacion:
-    def __init__(self, ruta_db=None, buscar_fn=None, carpeta_respaldos=None, reloj=None, explorar_fn=None):
+    def __init__(self, ruta_db=None, buscar_fn=None, carpeta_respaldos=None, reloj=None):
         self.ruta_db = ruta_db or config.DB_PATH
         self.buscar_fn = buscar_fn or buscar.buscar_ofertas
         self._lock = threading.Lock()
         self.estado = {"buscando": False, "mensaje": "", "error": ""}
-        # «Explorar remotos» corre aparte, con su propio estado: puede ir al mismo tiempo que «Buscar empleos»
-        self.estado_explorar = {"buscando": False, "mensaje": "", "error": ""}
         self.trabajos = {"buscar": (self.estado, self.buscar_fn, "Búsqueda terminada: ",
-                                    ("oferta relevante nueva", "ofertas relevantes nuevas")),
-                         "explorar": (self.estado_explorar, explorar_fn or buscar.explorar_remotos,
-                                      "Exploración terminada: ", ("oferta nueva", "ofertas nuevas"))}
+                                    ("oferta relevante nueva", "ofertas relevantes nuevas"))}
         self.hilo = None
         self.carpeta_respaldos = config.RESPALDOS_DIR if carpeta_respaldos is None else carpeta_respaldos
         self.reloj = reloj or buscar.ahora_chile         # inyectable: las pruebas usan un reloj simulado
@@ -163,7 +157,6 @@ class Aplicacion:
     def snapshot(self) -> dict:
         with self._lock:
             est = dict(self.estado)
-            est["explorar"] = dict(self.estado_explorar)
         con = self.conexion()
         try:
             est["corrida"] = buscar.ultima_corrida(con)
@@ -231,32 +224,22 @@ class Aplicacion:
         with self._lock:
             (self.estado if estado is None else estado).update(kw)
 
-    def iniciar_busqueda(self, tipo: str = "buscar", fuentes=None, grupo=None) -> bool:
-        """tipo: 'buscar' o 'explorar'. Cada uno, como mucho una vez a la vez; los dos pueden ir juntos.
-        fuentes: las plataformas marcadas en la página (None = todas). grupo: id común de una «Buscar empleos»."""
-        estado = self.trabajos[tipo][0]
+    def iniciar_busqueda(self, fuentes=None, grupo=None) -> bool:
+        """Una búsqueda a la vez. fuentes: las plataformas marcadas en la página (None = todas). grupo: id común."""
         with self._lock:
-            if estado["buscando"]:
+            if self.estado["buscando"]:
                 return False
-            estado.update(buscando=True, mensaje="Iniciando la búsqueda...", error="", inicio=time.time())
-        self.hilo = threading.Thread(target=self._correr, args=(tipo, fuentes, grupo), daemon=True)
+            self.estado.update(buscando=True, mensaje="Iniciando la búsqueda...", error="", inicio=time.time())
+        self.hilo = threading.Thread(target=self._correr, args=(fuentes, grupo), daemon=True)
         self.hilo.start()
         return True
 
     def iniciar_corrida(self, fuentes=None) -> bool:
-        """«Buscar empleos» unificado: la búsqueda normal y la exploración de remotos, en hilos a la vez, con las
-        plataformas marcadas y el mismo grupo (así el historial las cuenta como una). False si alguna ya está en curso."""
-        with self._lock:
-            if self.estado["buscando"] or self.estado_explorar["buscando"]:
-                return False
-        grupo = uuid.uuid4().hex
-        normal = self.iniciar_busqueda("buscar", fuentes, grupo)
-        explorar = self.iniciar_busqueda("explorar", fuentes, grupo)
-        return normal or explorar
+        """«Buscar empleos»: la búsqueda normal con las plataformas marcadas. False si ya hay una en curso."""
+        return self.iniciar_busqueda(fuentes, uuid.uuid4().hex)
 
-    def _correr(self, tipo: str = "buscar", fuentes=None, grupo=None):
-        estado, fn, fin, (uno, varios) = self.trabajos[tipo]
-        # solo en este hilo: el avance de una búsqueda no pisa el de la otra
+    def _correr(self, fuentes=None, grupo=None):
+        estado, fn, fin, (uno, varios) = self.estado, self.buscar_fn, "Búsqueda terminada: ", ("oferta relevante nueva", "ofertas relevantes nuevas")
         buscar.salida_del_hilo.fn = lambda m: self._set(estado, mensaje=str(m).strip().splitlines()[-1] if str(m).strip() else "")
         buscar.grupo_del_hilo.id = grupo
         con = None
@@ -400,10 +383,6 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                         return self._json(400, {"error": "elige al menos una plataforma válida"})
                     fuentes = list(dict.fromkeys(fuentes))
                 if app.iniciar_corrida(fuentes):
-                    return self._json(202, {"ok": True})
-                return self._json(409, {"error": "ya hay una búsqueda en curso"})
-            if ruta == "/api/explorar":
-                if app.iniciar_busqueda("explorar"):
                     return self._json(202, {"ok": True})
                 return self._json(409, {"error": "ya hay una búsqueda en curso"})
             if ruta == "/api/aviso":

@@ -42,7 +42,7 @@ def con_clave(monkeypatch):
 
 
 def test_registrada_en_config_y_api():
-    assert "jooble" in config.SITIOS and config.NOMBRE_FUENTE["jooble"] == "Jooble"
+    assert "jooble" not in config.SITIOS and config.NOMBRE_FUENTE["jooble"] == "Jooble"   # fuera de la búsqueda (2-11)
     assert "jooble" in buscar.APIS_REMOTAS and buscar.APIS_REMOTAS["jooble"] is jooble
     assert "jooble" in config.FUENTES_SIN_TEXTO      # solo trae resumen: va a «Sin texto»
     assert config.MAX_ANTIGUEDAD_DIAS.get("jooble") == 7

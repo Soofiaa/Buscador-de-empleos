@@ -30,7 +30,7 @@ TERMINOS_B = [  # roles puente (no TI): recortados a los que trajeron resultados
 # con la ubicación escrita ("Santiago, Chile"). Es un rodeo: ver probar_fuentes.py.
 # Google está desactivado: JobSpy recibe "Google returned no job data" (probado 2026-10-10).
 # Para reintentarlo, agrégalo a la lista: SITIOS = ["indeed", "glassdoor", "google"]
-SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "jooble", "weworkremotely", "arbeitnow"]
+SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "weworkremotely", "arbeitnow"]   # jooble: fuera (2-11, no trae ofertas útiles; el módulo queda por si se reactiva)
 
 # himalayas / jobicy: APIs públicas de empleo remoto (ver himalayas.py y jobicy.py). Traen el listado reciente en una
 # sola solicitud por corrida; el clasificador filtra por rol. Atribución: enlace a la fuente y postulación a la oferta.
@@ -64,43 +64,15 @@ TERMINOS_LINKEDIN = [
 # ---- Explorar remotos (botón aparte): roles fuera de tu perfil TI que podrían calzar, SOLO remotos ----
 # Indeed los busca como "<término> remoto" en Chile (Himalayas y Jobicy, con TERMINOS_EXPLORAR_EN). Las fuentes remotas
 # de la búsqueda normal también alimentan esta lista: el clasificador reconoce estos roles venga de donde venga la oferta.
-TERMINOS_EXPLORAR = [
-    "especialista de implementación", "onboarding", "customer success",
-    "automatización no code", "zapier", "administrador CRM", "hubspot",
-    "entrenador de IA", "evaluador de IA", "etiquetado de datos", "anotación de datos",
-    "redactor técnico", "documentación técnica", "technical writer",
-    "product analyst", "analista de producto", "UX research", "UX writer",
-    "asistente virtual", "asistente administrativo", "back office", "transcripción", "traductor",
-    "moderador de contenido",
-    "freelance", "freelance python", "freelance QA", "freelance datos", "independiente",
-]
+TERMINOS_EXPLORAR = []   # «Explorar remotos» retirado (2-11): vacío, el clasificador ya no asigna la categoría «explorar»
 # Las mismas familias en inglés, para las APIs remotas que buscan por texto (Himalayas y Jobicy; sus robots.txt lo
 # permiten). Remote First Jobs no: su robots.txt prohíbe /api/search-jobs.
-EXPLORAR_APIS = ("himalayas", "jobicy")
-TERMINOS_EXPLORAR_EN = [
-    "customer success", "implementation specialist", "onboarding specialist", "no-code", "hubspot",
-    "ai trainer", "data annotation", "technical writer", "product analyst", "ux research", "virtual assistant",
-    "freelance",
-]
+EXPLORAR_APIS = ()
+TERMINOS_EXPLORAR_EN = []
 # (etiqueta, patrón en el TÍTULO, prioridad). Solo se miran si ninguna regla de tu perfil reconoce el cargo (o si un
 # rol puente no junta sus señales). Pasan los mismos filtros (estafa, práctica, senior, experiencia, empresas) y
 # además deben ser remotos; si no, se descartan.
-ROLES_EXPLORAR = [
-    ("implementación / onboarding", r"implementa(cion|tion)|onboarding", "Alta"),
-    ("automatización sin código / CRM", r"no[ -]?code|low[ -]?code|zapier|\bn8n\b|hubspot|salesforce|\bcrm\b", "Alta"),
-    ("producto", r"product (analyst|operations|ops)|analista de producto", "Alta"),
-    ("documentación técnica", r"technical (writer|content)|redactor tecnico|documentacion tecnica|documentation", "Alta"),
-    ("IA y datos", r"\bai (trainer|tutor|evaluator|rater|annotator)|(entrenador|evaluador|anotador)a? de (ia|inteligencia artificial)"
-                   r"|data (annotat|label)|(etiquetado|anotacion) de datos|\bai training\b|\brater\b", "Media"),
-    ("customer success", r"customer success|client success|exito (del|de) cliente|product support|technical account", "Media"),
-    ("UX", r"\bux\b|user research|usabilidad", "Media"),
-    ("asistente virtual / administrativo", r"asistente (virtual|administrativ|ejecutiv)|(virtual|administrative|executive) assistant", "Baja"),
-    ("back office / operaciones", r"back ?office|operations (assistant|specialist|analyst)|analista administrativ", "Baja"),
-    ("traducción / transcripción", r"traduct|translat|transcri|locali[sz]a|subtitul", "Baja"),
-    ("moderación de contenido", r"moderador|content moderat|trust (and|&) safety", "Baja"),
-    # cualquier cargo freelance que no reconozca otra regla (un "Desarrollador Python freelance" sigue yendo a Ofertas)
-    ("freelance / por proyecto", r"freelanc|independiente|por proyecto|(?<!pago )(?<!pago de )honorarios?(?! medic)", "Baja"),
-]
+ROLES_EXPLORAR = []   # «Explorar remotos» retirado (2-11)
 EXPLORAR_TIPO = "E: Explorar"
 
 NOMBRE_FUENTE = {"indeed": "Indeed", "google": "Google", "glassdoor": "Glassdoor", "getonboard": "Get on Board",
@@ -120,7 +92,8 @@ EXPERIENCIA_SIN_VERIFICAR = "Sin verificar"
 # BNE: "ocupacion:7643" = grupo TI "Desarrolladores y analistas de sistemas". Palabras de menos de 3 letras dan 0 ("qa").
 TERMINOS_BNE = ["ocupacion:7643", "analista funcional", "analista de procesos", "tester", "testing",
                 "calidad de software", "automatizacion de pruebas",
-                "control de gestion", "analista de operaciones", "datos maestros", "mejora continua"]
+                "control de gestion", "analista de operaciones", "datos maestros", "mejora continua",
+                "informatico junior"]
 # Trabajando: solo existen las páginas /trabajo-<término> que el sitio tiene; si no, 404 (se recuerda 30 días).
 TERMINOS_TRABAJANDO = ["analista-funcional", "analista-qa", "analista-programador",
                        "desarrollador-backend", "programador", "devops", "informatico"]   # verificados el 2-11: 200 (sin 404)
