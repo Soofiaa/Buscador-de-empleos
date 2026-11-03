@@ -1,5 +1,32 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 03-11-2026 (commit `3e806ef`, rama `feat/unificar-ofertas`): sin Viña del Mar
+
+Cambia solo: las ubicaciones de Indeed y Jooble son solo Santiago (antes Santiago y Viña del Mar). Motivo: la corrida
+de 13 minutos y que Viña casi siempre vino vacía. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361` |
+| Imagen anterior | `job-tracker:pre-vina-20261103`, `sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893` |
+| Base de referencia | `ofertas_pre_vina_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `3d14f868cdeac10c1f4edd3486801f78b25d628d3f47d4b919f24feba354fc02`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8204 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-vina-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: las consultas de Indeed y Jooble en Viña del Mar.
+
+---
+
 ## Despliegue del 03-11-2026 (commit `259828e`, rama `feat/unificar-ofertas`): Glassdoor solo en Santiago
 
 Cambia solo: Glassdoor consulta solo Santiago (antes Santiago, Viña y Remoto). Motivo: una corrida de 17 minutos con

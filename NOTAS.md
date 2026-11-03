@@ -7,9 +7,10 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: Glassdoor solo en Santiago (03-11-2026)**, commit `259828e` (rama `feat/unificar-ofertas`, con push).
-  Imagen `job-tracker-jobtracker:latest` = `sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-glassdoor-santiago-20261103` (`sha256:a2784e2378d4616fde4b1910a9c4d8895aa69e1d89a9db491d5297599459e2a6`).
-  Referencia: `ofertas_pre_glassdoor_santiago_20261103.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `2b4168796f1ab9fdc6c634903be6f940aa5923aff70d22470e082542cb62eae2`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK, ninguna tabla cambió. Salida al detener: 0. Sin cambios de esquema.
+- **Vigente: sin Viña del Mar en las ubicaciones de Indeed y Jooble (03-11-2026)**, commit `3e806ef` (rama `feat/unificar-ofertas`, con push).
+  Imagen `job-tracker-jobtracker:latest` = `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-vina-20261103` (`sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893`).
+  Referencia: `ofertas_pre_vina_20261103.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `3d14f868cdeac10c1f4edd3486801f78b25d628d3f47d4b919f24feba354fc02`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK, ninguna tabla cambió. Salida al detener: 0. Sin cambios de esquema.
+- Anterior: Glassdoor solo en Santiago (03-11-2026), commit `259828e`. Imagen `sha256:e3759802…`, etiqueta `job-tracker:pre-glassdoor-santiago-20261103`.
 - Anterior: LinkedIn con 10 resultados por consulta y ventana fija de 1 día (03-11-2026), commit `74bf1b1`. Imagen `sha256:a2784e23…`, etiqueta `job-tracker:pre-linkedin-10-20261103`.
 - Anterior: sin «Explorar remotos» ni Jooble (02-11-2026), commit `4916a33`. Imagen `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8`, etiqueta `job-tracker:pre-quitar-remotos-20261102`.
 - Anterior: avisos ⚠ por término y lista de Trabajando sin 404 (02-11-2026), commit `f862ee9`.
