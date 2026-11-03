@@ -872,7 +872,7 @@ def buscar_ofertas(con, fuentes=None) -> int:
             for t in (terminos_indeed if s == "indeed"
                       else terminos_linkedin if s == "linkedin"
                       else [""] if s in APIS_REMOTAS else config.TERMINOS_SECUNDARIOS)
-            for l in (["Chile"] if s in APIS_REMOTAS else lugares)]   # las APIs no usan ubicación ni término
+            for l in (["Chile"] if s in APIS_REMOTAS else config.UBICACIONES_SOLO.get(s, lugares))]   # las APIs no usan ubicación ni término
     # LinkedIn no va en ráfaga: sus consultas se intercalan con los turnos de las demás fuentes (ver _intercalar)
     for sitio in config.DISTANCIAR:
         plan = _intercalar(plan, sitio)

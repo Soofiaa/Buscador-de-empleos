@@ -131,6 +131,9 @@ RESULTADOS_POR_BUSQUEDA = 30
 RESULTADOS_LINKEDIN = 10
 # Fuentes que no amplían su ventana cuando pasan días sin buscar (ver buscar.ventanas_efectivas)
 SIN_AMPLIAR_VENTANA = ("linkedin",)
+# Fuentes que solo buscan en estas ubicaciones (en vez de todas las de la página). Glassdoor: en la corrida de 03-11
+# casi 4 de cada 5 consultas volvieron vacías en Viña y Remoto, y cada una espera 3-5 s (ver NOTAS.md, 03-11).
+UBICACIONES_SOLO = {"glassdoor": ["Santiago, Chile"]}
 PAUSA_ENTRE_BUSQUEDAS = 1.5       # segundos, para no gatillar bloqueos
 # Pausa aleatoria (mínimo, máximo en segundos) entre consultas JobSpy de las fuentes que limitan más: LinkedIn
 # respondió 429 el 19-10 con 1,5 s. Si igual responde 429, esa fuente se deja por el resto de la corrida.
