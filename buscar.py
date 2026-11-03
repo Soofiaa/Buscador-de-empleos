@@ -570,7 +570,10 @@ def ventanas_efectivas(con, ahora: datetime, explorar: bool = False) -> dict:
             hueco = (ahora.astimezone(ZONA).date() - fin).days + 1
         except ValueError:
             pass
-    return {s: min(config.DIAS_MAXIMOS, max(config.MAX_ANTIGUEDAD_DIAS.get(s, 1), hueco)) for s in config.SITIOS}
+    # LinkedIn no amplía su ventana: si pasan días sin buscar, no trae el hueco entero (lo trae el 961 de 2-11)
+    return {s: (config.MAX_ANTIGUEDAD_DIAS.get(s, 1) if s in config.SIN_AMPLIAR_VENTANA
+                else min(config.DIAS_MAXIMOS, max(config.MAX_ANTIGUEDAD_DIAS.get(s, 1), hueco)))
+            for s in config.SITIOS}
 
 
 def recientes(df: pd.DataFrame, fuente: str, ahora: datetime, dias: int) -> tuple[pd.DataFrame, int]:
@@ -612,7 +615,7 @@ def consulta(sitio: str, termino: str, lugar: str, resultados: int | None = None
         site_name=[sitio],
         search_term=f"{termino} remoto" if remoto else termino,
         location="Chile" if remoto else lugar,
-        results_wanted=resultados or config.RESULTADOS_POR_BUSQUEDA,
+        results_wanted=resultados or (config.RESULTADOS_LINKEDIN if sitio == "linkedin" else config.RESULTADOS_POR_BUSQUEDA),
         hours_old=24 * (dias + 1 if sitio == "glassdoor" else dias), verbose=0,
     )
     if sitio == "indeed":

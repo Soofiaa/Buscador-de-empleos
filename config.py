@@ -126,6 +126,11 @@ INCLUIR_REMOTO = True
 REGIONES_VALIDAS = {"RM", "VS"}   # presencial/híbrido solo en estas regiones
 
 RESULTADOS_POR_BUSQUEDA = 30
+# LinkedIn pide el detalle de cada oferta (una petición extra por oferta): con 30 por consulta una corrida tardó 30 min
+# (961 ofertas en 45 consultas, 2-11). Con 10 se mantiene el detalle y baja el tiempo (ver NOTAS.md, 03-11).
+RESULTADOS_LINKEDIN = 10
+# Fuentes que no amplían su ventana cuando pasan días sin buscar (ver buscar.ventanas_efectivas)
+SIN_AMPLIAR_VENTANA = ("linkedin",)
 PAUSA_ENTRE_BUSQUEDAS = 1.5       # segundos, para no gatillar bloqueos
 # Pausa aleatoria (mínimo, máximo en segundos) entre consultas JobSpy de las fuentes que limitan más: LinkedIn
 # respondió 429 el 19-10 con 1,5 s. Si igual responde 429, esa fuente se deja por el resto de la corrida.
