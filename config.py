@@ -4,31 +4,24 @@ Los patrones son expresiones regulares sobre texto en minúsculas y SIN tildes.
 """
 
 # ============================================================== Qué buscar
-TERMINOS_A = [  # roles TI
-    "analista funcional", "QA", "testing", "tester", "analista de pruebas",
-    "business analyst", "análisis de requerimientos", "BPMN",
-    "automatización de procesos", "desarrollador python",
-    "desarrollador backend", "desarrollador junior", "desarrollador jr", "desarrollador frontend",
-    "analista de sistemas", "analista de datos junior", "analista de datos jr", "reportería BI",
-    "informático junior", "informático jr",
-    "data engineer junior", "data engineer jr", "ETL junior", "ETL jr", "analista BI junior", "analista BI jr",
-    "scrum master junior", "scrum master jr", "product owner junior", "product owner jr",
-    "devops junior", "devops jr", "cloud junior", "cloud jr",
-    "analista de ciberseguridad junior", "analista de ciberseguridad jr",
+TERMINOS_A = [  # roles TI: reducido a top 8 que más resultados traen, para bajar Indeed de 195 a ~48 consultas
+    "desarrollador backend",
+    "automatización de procesos", 
+    "QA", "testing",
+    "análisis de requerimientos",
+    "analista funcional",
+    "desarrollador python",
+    "analista de datos junior", "analista de datos jr",
     "desarrollador full stack junior", "desarrollador full stack jr",
-    "soporte TI", "help desk",   # soporte TI: categoría S (prioridad Baja); el interruptor de la página decide si se ve
+    "informático junior", "informático jr",
+    "soporte TI", "help desk",
 ]
 # Nota: "BPMN UML" (0 resultados en todas las zonas) se reemplazó por "BPMN";
 # los términos con "junior" + varias palabras técnicas no devuelven nada en Indeed.
-TERMINOS_B = [  # roles puente (no TI)
-    "analista de procesos", "mejora continua", "datos maestros", "master data",
-    "analista de reportería", "control de gestión", "usuario clave", "key user",
-    "analista SAP", "analista de implementación",
-    "analista de operaciones", "PMO", "asistente de proyectos",
+TERMINOS_B = [  # roles puente (no TI): recortados a los que trajeron resultados (ver NOTAS, 02-11)
+    "analista de procesos", "mejora continua", "datos maestros",
+    "analista de reportería", "control de gestión", "usuario clave",
     "analista de calidad", "analista de mejora",
-    "coordinador de proyectos junior", "coordinador de proyectos jr", "gestor de proyectos junior", "gestor de proyectos jr",
-    "analista de transformación digital junior", "analista de transformación digital jr",
-    "consultor funcional junior", "consultor funcional jr",
     "analista de requerimientos junior", "analista de requerimientos jr",
 ]
 # Fuentes. Indeed busca con todos los términos; Google y Glassdoor con la lista

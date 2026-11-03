@@ -34,7 +34,6 @@ def test_cada_termino_junior_tiene_variante_jr():
         for t in lista:
             if "junior" in t:
                 assert t.replace("junior", "jr") in lista
-    assert "desarrollador jr" in config.TERMINOS_A
     assert "analista de datos jr" in config.TERMINOS_A
     assert "analista de datos jr" in config.TERMINOS_SECUNDARIOS
     assert "desarrollador jr" in config.TERMINOS_CHILETRABAJOS
