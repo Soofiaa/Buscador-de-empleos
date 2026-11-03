@@ -1,5 +1,32 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 03-11-2026 (commit `74bf1b1`, rama `feat/unificar-ofertas`): LinkedIn con 10 resultados y ventana fija
+
+Cambia solo: LinkedIn pide 10 resultados por consulta (antes 30) y su ventana no se amplía cuando pasan días sin
+buscar. Motivo: una corrida de 30 minutos con 961 ofertas de LinkedIn. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:a2784e2378d4616fde4b1910a9c4d8895aa69e1d89a9db491d5297599459e2a6` |
+| Imagen anterior | `job-tracker:pre-linkedin-10-20261103`, `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8` |
+| Base de referencia | `ofertas_pre_linkedin10_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `c87fea4a08c8f83af3f16944a1547c696814138a3300d0f724ef153f5c0bfe5d`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8092 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-linkedin-10-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: el tope de 10 por consulta (LinkedIn vuelve a traer 30) y la ventana fija (vuelve a ampliarse si pasan días).
+
+---
+
 ## Despliegue del 02-11-2026 (commit `4916a33`, rama `feat/unificar-ofertas`): sin Explorar remotos ni Jooble
 
 Quita «Explorar remotos» (ruta `/api/explorar`, columna Remotos, búsqueda aparte) y Jooble de la lista de fuentes. No
