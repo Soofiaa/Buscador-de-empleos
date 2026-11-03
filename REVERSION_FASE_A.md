@@ -1,5 +1,34 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 02-11-2026 (commit `4916a33`, rama `feat/unificar-ofertas`): sin Explorar remotos ni Jooble
+
+Quita «Explorar remotos» (ruta `/api/explorar`, columna Remotos, búsqueda aparte) y Jooble de la lista de fuentes. No
+cambia el esquema (v7) ni la base: la tabla `ajustes` queda igual, y las ofertas y corridas antiguas de exploración
+siguen en la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8` |
+| Imagen anterior | `job-tracker:pre-quitar-remotos-20261102` (la etiqueta de la imagen anterior de `f862ee9`, que es `job-tracker-jobtracker` en su último build) |
+| Base de referencia | `ofertas_pre_quitar_remotos_20261102.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `0d62b9b943c0c4ddbbfdb066936921994c8766b0bcbb1f6619de639ba6ca0a8c`; `integrity_check=ok` |
+| Línea base | SQLite v7; 7922 ofertas, 111 corridas, 501 filas en `historial_estados`, 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-quitar-remotos-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: la columna Remotos y el botón de exploración. Las ofertas que quedaron en la categoría «explorar» dejan de
+verse en la página (siguen en la base).
+
+---
+
 ## Despliegue del 02-11-2026 (commit `f862ee9`, rama `feat/unificar-ofertas`)
 
 Cambia solo: lista de términos de Trabajando (sin 404), avisos ⚠ por término en consola y descarte de término+ubicación

@@ -7,7 +7,10 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: avisos ⚠ por término y lista de Trabajando sin 404 (02-11-2026)**, commit `f862ee9` (rama `feat/unificar-ofertas`, con push).
+- **Vigente: sin «Explorar remotos» ni Jooble (02-11-2026)**, commit `4916a33` (rama `feat/unificar-ofertas`, con push).
+  Imagen `job-tracker-jobtracker:latest` = `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-quitar-remotos-20261102`.
+  Referencia: `ofertas_pre_quitar_remotos_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `0d62b9b943c0c4ddbbfdb066936921994c8766b0bcbb1f6619de639ba6ca0a8c`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK, ninguna tabla cambió. Salida al detener: 0. Sin cambios de esquema.
+- Anterior: avisos ⚠ por término y lista de Trabajando sin 404 (02-11-2026), commit `f862ee9`.
   Imagen `job-tracker-jobtracker:latest` = `sha256:eaf44072515b99e41ffefe29f9044d5e114c995b9766915b49c9bbfd3f29a4c6`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:respaldo-20261102`. Reversión en `REVERSION_FASE_A.md`.
   Referencia: `ofertas_pre_trabajando_terminos_20261102.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `24e3ed80986999750c2e841ee235d9e938230e5d51bdb1f93986c072e354b84d`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK. Salida al detener: 0. Sin cambios de esquema.
 - Anterior: aviso de robots.txt solo en portales de empleo (02-11-2026), commit `2eaa620`.
