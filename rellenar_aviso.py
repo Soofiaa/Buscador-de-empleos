@@ -1,7 +1,8 @@
 """Rellena una postulación manual a partir del enlace del aviso.
 
-Solo lee el JSON-LD JobPosting que muchos portales ponen en la página (schema.org).
-Si el sitio no lo trae (LinkedIn, Glassdoor…), no adivina: hay que completar a mano.
+Lee el JSON-LD JobPosting que muchos portales ponen en la página (schema.org).
+LinkedIn no lo trae: se lee el HTML público de invitado (linkedin.aviso_formulario).
+Si tampoco hay texto usable, hay que completar a mano.
 """
 import html as html_mod
 import json
@@ -11,6 +12,7 @@ from bs4 import BeautifulSoup
 
 import filtros
 import ia
+import linkedin
 from red import Bloqueo, ErrorFuente, NoEncontrada, USER_AGENT_HTTP, parece_bloqueo, pedir
 from urllib.parse import parse_qs, urlsplit
 
@@ -176,13 +178,44 @@ def html_con_navegador(url: str) -> str:
             nav.close()
 
 
+def _modalidad_linkedin(criterios: dict, titulo: str, descripcion: str, ubicacion: str) -> str:
+    tipo = filtros.normalizar(criterios.get("tipo de empleo", ""))
+    if "remoto" in tipo or "remote" in tipo or "remoto" in filtros.normalizar(ubicacion):
+        return "Remoto"
+    if "hibrido" in tipo or "híbrido" in criterios.get("tipo de empleo", "").lower():
+        return "Híbrido"
+    m, _ = filtros.detectar_modalidad(filtros.normalizar(titulo), filtros.normalizar(descripcion), False)
+    return m if m in MODALIDADES else ""
+
+
+def desde_linkedin(url: str, cliente, robots) -> dict:
+    """El aviso público de LinkedIn no trae JSON-LD. El HTML de invitado sí trae cargo, empresa y texto."""
+    jid = linkedin._job_id(url)
+    if not jid:
+        raise ErrorFuente("ese enlace de LinkedIn no tiene el número del aviso; complétalo a mano")
+    try:
+        html = pedir("%s/jobs-guest/jobs/api/jobPosting/%s" % (linkedin.BASE, jid), cliente, robots, ignorar_robots=True)
+        datos = linkedin.aviso_formulario(html)
+        criterios = datos.pop("criterios")
+        datos["modalidad"] = _modalidad_linkedin(criterios, datos["titulo"], datos["descripcion"], datos["ubicacion"])
+        datos["sueldo"] = ""          # el HTML guest casi nunca trae sueldo en Chile
+        return datos
+    except Bloqueo:
+        # LinkedIn bloquea muchas peticiones automáticas: el navegador podría pasar, pero es lento.
+        # Mejor falla limpiamente y pide que pegue el texto del aviso.
+        raise ErrorFuente("LinkedIn rechaza las descargas automáticas; abre el aviso, copia su texto y pégalo abajo")
+
+
 def desde_url(url: str, cliente, robots) -> dict:
     """Saca los datos del aviso, en este orden:
-      1. HTML normal (pedir sin revisar robots.txt, con pausa). Si trae JSON-LD, listo.
-      2. Si la página llega vacía (JavaScript), un navegador la renderiza; después se prueba el JSON-LD otra vez.
-      3. Lo que quede de texto visible se le pasa a la IA.
+      1. LinkedIn: HTML público de invitado (la página del aviso no trae JSON-LD).
+      2. HTML normal (pedir sin revisar robots.txt, con pausa). Si trae JSON-LD, listo.
+      3. Si la página llega vacía (JavaScript), un navegador la renderiza; después se prueba el JSON-LD otra vez.
+      4. Lo que quede de texto visible se le pasa a la IA.
     Propaga Bloqueo, NoEncontrada y ErrorFuente."""
     host = urlsplit(url).hostname or ""
+    if host == "linkedin.com" or host.endswith(".linkedin.com"):
+        return desde_linkedin(url, cliente, robots)
     en_portal = any(host == d or host.endswith("." + d) for d in PORTALES_TRABAJO)
     html = pedir(url, cliente, robots, ignorar_robots=en_portal)     # robots.txt solo se salta en portales de empleo
     try:

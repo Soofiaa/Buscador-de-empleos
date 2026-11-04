@@ -106,6 +106,33 @@ def test_si_la_ia_falla_el_error_llega_al_usuario(monkeypatch):
     raise AssertionError("debió lanzar ErrorFuente")
 
 
+def test_linkedin_usa_el_html_de_invitado_y_no_la_pagina_publica(monkeypatch):
+    html = (Path(__file__).parent / "fixtures" / "linkedin_detalle.html").read_text(encoding="utf-8")
+    visto = {}
+
+    def falsa_pedir(url, c, r, **_):
+        visto["url"] = url
+        return html
+
+    monkeypatch.setattr(rellenar_aviso, "pedir", falsa_pedir)
+    r = rellenar_aviso.desde_url("https://www.linkedin.com/jobs/view/4487295075/", None, None)
+    assert visto["url"].endswith("/jobs-guest/jobs/api/jobPosting/4487295075")
+    assert r["titulo"] == "Consultor Funcional Oracle Fusion ERP"
+    assert r["empresa"] == "ACL"
+    assert "Santiago" in r["ubicacion"]
+    assert "descripcion" in r and r["modalidad"] in ("", "Remoto", "Híbrido", "Presencial")
+    assert r["sueldo"] == ""
+
+
+def test_linkedin_sin_id_no_inventa(monkeypatch):
+    monkeypatch.setattr(rellenar_aviso, "pedir", lambda *a, **k: pytest.fail("no debía pedir la red"))
+    try:
+        rellenar_aviso.desde_url("https://www.linkedin.com/jobs/", None, None)
+    except ErrorFuente:
+        return
+    raise AssertionError("debió lanzar ErrorFuente")
+
+
 def test_sin_empresa_no_devuelve_datos_parciales():
     try:
         rellenar_aviso.parsear_aviso(pagina({"@type": "JobPosting", "title": "X"}))
