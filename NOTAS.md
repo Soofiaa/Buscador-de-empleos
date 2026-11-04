@@ -7,9 +7,11 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: sin Viña del Mar en las ubicaciones de Indeed y Jooble (03-11-2026)**, commit `3e806ef` (rama `feat/unificar-ofertas`, con push).
-  Imagen `job-tracker-jobtracker:latest` = `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre-vina-20261103` (`sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893`).
-  Referencia: `ofertas_pre_vina_20261103.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `3d14f868cdeac10c1f4edd3486801f78b25d628d3f47d4b919f24feba354fc02`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK, ninguna tabla cambió. Salida al detener: 0. Sin cambios de esquema.
+- **Vigente: autocompletado de LinkedIn por HTML de invitado (04-11-2026)**, commit `bf88ece` (rama `feat/unificar-ofertas`, con push).
+  Imagen `job-tracker-jobtracker:latest` = `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre_autocompletado_linkedin_20261104` (`sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361`).
+  Referencia: `ofertas_pre_autocompletado_linkedin_20261104.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `6D905D90340FB11CBC90DC2392010F601F293874F51905A3884E9A4E46A459EA`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK. Salida al detener: 0. Sin cambios de esquema.
+  Pendiente: LinkedIn e Indeed siguen rechazando la lectura automática en algunos casos; el pegado de texto es la vía segura.
+- Anterior: Vigente sin Viña del Mar en las ubicaciones de Indeed y Jooble (03-11-2026), commit `3e806ef`. Imagen `sha256:32804954…`, etiqueta `job-tracker:pre-vina-20261103`, referencia `ofertas_pre_vina_20261103.db` (`sha256:3d14f868…`).
 - Anterior: Glassdoor solo en Santiago (03-11-2026), commit `259828e`. Imagen `sha256:e3759802…`, etiqueta `job-tracker:pre-glassdoor-santiago-20261103`.
 - Anterior: LinkedIn con 10 resultados por consulta y ventana fija de 1 día (03-11-2026), commit `74bf1b1`. Imagen `sha256:a2784e23…`, etiqueta `job-tracker:pre-linkedin-10-20261103`.
 - Anterior: sin «Explorar remotos» ni Jooble (02-11-2026), commit `4916a33`. Imagen `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8`, etiqueta `job-tracker:pre-quitar-remotos-20261102`.

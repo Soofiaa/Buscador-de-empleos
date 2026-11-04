@@ -1,5 +1,39 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 04-11-2026 (commit `bf88ece`, rama `feat/unificar-ofertas`): autocompletado de LinkedIn
+
+Cambia solo: el autocompletado de avisos de LinkedIn lee el HTML de invitado (`jobs-guest/jobs/api/jobPosting/<id>`)
+en vez de buscar JSON-LD, y si LinkedIn rechaza la lectura pide pegar el texto del aviso. No cambia el esquema (v7) ni
+la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0` |
+| Imagen anterior | `job-tracker:pre_autocompletado_linkedin_20261104`, `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361` |
+| Base de referencia | `ofertas_pre_autocompletado_linkedin_20261104.db`, en el volumen y en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `6D905D90340FB11CBC90DC2392010F601F293874F51905A3884E9A4E46A459EA`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8515 ofertas; 48 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre_autocompletado_linkedin_20261104 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: el autocompletado de LinkedIn por HTML de invitado (vuelve el mensaje de JSON-LD ausente).
+
+Prueba de reversión: la imagen anterior levantada sobre una copia de la referencia en el volumen temporal
+`jt_revision_autocompletado` (127.0.0.1:8767): healthy, `/api/estado` y `/api/ofertas` 200. Volumen y contenedor
+borrados después.
+
+Huellas antes y después: RESULTADO OK (sin tablas cambiadas).
+
+---
+
 ## Despliegue del 03-11-2026 (commit `3e806ef`, rama `feat/unificar-ofertas`): sin Viña del Mar
 
 Cambia solo: las ubicaciones de Indeed y Jooble son solo Santiago (antes Santiago y Viña del Mar). Motivo: la corrida
