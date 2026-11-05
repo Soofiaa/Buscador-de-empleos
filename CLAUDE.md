@@ -32,6 +32,11 @@ en producción, lo aprobado y lo pendiente.
 - `respaldo.py`: respaldos (API de backup, sha256, retención 30). `unir_bases.py`: unión de una vez (exenta).
 - Portales: `bne.py`, `trabajando.py`, `chiletrabajos.py`, `chumi.py`, `laborum.py` (Playwright, Chromium sin
   ventana, mismo User-Agent honesto), `getonboard.py`; red: `red.py`, `robots.py`, `geo.py`.
+- APIs públicas de empleo remoto (sin autenticación, una solicitud por corrida): `himalayas.py`, `jobicy.py`,
+  `remotefirstjobs.py`, `weworkremotely.py` (feed RSS), `arbeitnow.py` (filtra por región). Se listan en `buscar.APIS_REMOTAS`.
+- `rellenar_linkedin.py`: script de una vez (30-10-2026) que trae la descripción de las postuladas de LinkedIn en «Sin texto».
+- `exclusiones.py` y `puestos.py`: validación de las exclusiones y de la lista de puestos editables desde la página
+  (`buscar.py` guarda en `ajustes`; `servidor.py` expone `/api/ajustes/*`).
   LinkedIn va por JobSpy (`config.SITIOS`); `linkedin.py` (endpoint de invitados) no está conectado, solo tiene tests.
 - Computrabajo y Empleos Públicos rechazan a la app (403 incluso con navegador real): solo enlaces «Buscar a mano» en la
   página. Nunca se usa un User-Agent de navegador para pasar un bloqueo.

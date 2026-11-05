@@ -64,7 +64,15 @@ manda lo más reciente y corrige la nota.
   copia (puerto 8767), según el skill `/desplegar`.
 
 ### Sin desplegar
-- Ninguno.
+- **Commit `9667f39` (verificación de condiciones de empleo en `ia.py` y estado «No seleccionada»): SIN DESPLEGAR, sin push.**
+  No hay despliegue que registrar. Comprobado el 05-11-2026: `job-tracker-jobtracker:latest` sigue en
+  `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0` (commit `bf88ece`; la imagen es de las 13:17
+  hora de Chile del 04-11, antes de `9667f39`, que es de las 21:15). Dentro del contenedor, `/app/ia.py` tiene sha256
+  `84baa0cd…` (= `bf88ece`); el de `9667f39` es `aebf848b…`. Por eso no hay sha256 de imagen nueva ni huellas ANTES/DESPUÉS.
+- Datos para cuando Sofia lo apruebe: imagen para volver atrás = la actual (`4d94baf…`), que hay que etiquetar antes de
+  reemplazarla (p. ej. `job-tracker:pre-condiciones-empleo-20261105`). Referencia de base: la última oficial,
+  `ofertas_pre_autocompletado_linkedin_20261104.db`, sha256 `6D905D90340FB11CBC90DC2392010F601F293874F51905A3884E9A4E46A459EA`
+  (se tomará una nueva al desplegar). Pendiente la aprobación de Sofia.
 - **A vigilar:** si LinkedIn empieza a responder 429 seguido (una petición extra por oferta), bajar
   `RESULTADOS_POR_BUSQUEDA` o `TERMINOS_LINKEDIN`.
 
