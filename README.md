@@ -2,9 +2,9 @@
 
 Aplicación local en Python + SQLite con interfaz web integrada (`web/pagina.html`) para la búsqueda y el seguimiento de ofertas laborales en Chile y en modalidad remota global.
 
-## Fuentes y Portales Activos (15 en total)
+## Fuentes y Portales Activos (14 en total)
 
-- **Portales y APIs chilenas / remotas**: BNE, Trabajando, Chiletrabajos, Chumi, Laborum, Get on Board, Himalayas, Jobicy, Remote First Jobs, We Work Remotely, Arbeitnow, Jooble.
+- **Portales y APIs chilenas / remotas**: BNE, Trabajando, Chiletrabajos, Chumi, Laborum, Get on Board, Himalayas, Jobicy, Remote First Jobs, We Work Remotely, Arbeitnow.
 - **Motores con JobSpy**: Indeed, Glassdoor, LinkedIn (con consultas intercaladas para evitar límites de tasa/429).
 
 ## Características Principales
@@ -30,7 +30,6 @@ Aplicación local en Python + SQLite con interfaz web integrada (`web/pagina.htm
 
 ## Configuración
 
-- **Jooble** necesita una clave gratuita (uso no comercial) en la variable `JOOBLE_KEY`. Guárdala en un archivo `.env` en la raíz del proyecto (ya está en `.gitignore`, nunca se sube al repositorio); `docker-compose.yml` la pasa al contenedor. Sin clave, Jooble no devuelve ofertas.
 - Las fuentes activas, los términos de búsqueda, las ubicaciones y las ventanas de antigüedad están en `config.py`.
 
 ## Ejecución de Pruebas

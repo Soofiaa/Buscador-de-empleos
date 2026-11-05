@@ -10,7 +10,7 @@ clasifica según tu perfil, y te deja gestionar tus postulaciones desde una pág
 
 ## 1. Qué hace
 
-1. **Busca** ofertas en 15 plataformas (ver §4).
+1. **Busca** ofertas en 14 plataformas (ver §4).
 2. **Filtra y clasifica** cada oferta: categoría, tipo de cargo, prioridad, modalidad, contrato, sueldo, experiencia.
 3. **Guarda** todo en una base SQLite local.
 4. **Muestra** las ofertas en una página web local (`http://127.0.0.1:8765`), donde gestionas estado, fase, notas y fechas.
@@ -106,7 +106,7 @@ exista en `config.SITIOS`. Si no mandas nada, corre todas.
 | `himalayas` | Himalayas | API | Remoto |
 | `jobicy` | Jobicy | API | Remoto |
 | `remotefirstjobs` | Remote First Jobs | API | Remoto |
-| `jooble` | Jooble | API | Requiere `JOOBLE_KEY` |
+| `jooble` | Jooble | API | Inactiva (fuera por falta de resultados útiles) |
 | `weworkremotely` | We Work Remotely | RSS | Remoto |
 | `arbeitnow` | Arbeitnow | API | Remoto |
 | `bne` | BNE | HTML (portal chileno) | Detención ante 401/403/429 |
@@ -143,7 +143,7 @@ Reglas de experiencia: se descarta si el mínimo exigido es 2 años o más, o si
 
 ## 6. Estados y seguimiento
 
-- **Estado** de una oferta: `nueva`, `revisada`, `postulada`, `entrevista`, `descartada`.
+- **Estado** de una oferta: `nueva`, `revisada`, `postulada`, `entrevista`, `descartada`, `no_seleccionada`.
 - **Fase** (solo con estado en proceso): postulación, RRHH, técnica, final, oferta.
 - **Fecha de postulación**: se pone sola al pasar a postulada o entrevista, si estaba vacía. No puede ser futura.
 - **Historial** (`historial_estados`): cada cambio queda con origen (tablero, lista, modal, manual, deshacer).
