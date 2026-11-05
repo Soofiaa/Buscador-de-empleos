@@ -4,31 +4,24 @@ Los patrones son expresiones regulares sobre texto en minúsculas y SIN tildes.
 """
 
 # ============================================================== Qué buscar
-TERMINOS_A = [  # roles TI
-    "analista funcional", "QA", "testing", "tester", "analista de pruebas",
-    "business analyst", "análisis de requerimientos", "BPMN",
-    "automatización de procesos", "desarrollador python",
-    "desarrollador backend", "desarrollador junior", "desarrollador jr", "desarrollador frontend",
-    "analista de sistemas", "analista de datos junior", "analista de datos jr", "reportería BI",
-    "informático junior", "informático jr",
-    "data engineer junior", "data engineer jr", "ETL junior", "ETL jr", "analista BI junior", "analista BI jr",
-    "scrum master junior", "scrum master jr", "product owner junior", "product owner jr",
-    "devops junior", "devops jr", "cloud junior", "cloud jr",
-    "analista de ciberseguridad junior", "analista de ciberseguridad jr",
+TERMINOS_A = [  # roles TI: reducido a top 8 que más resultados traen, para bajar Indeed de 195 a ~48 consultas
+    "desarrollador backend",
+    "automatización de procesos", 
+    "QA", "testing",
+    "análisis de requerimientos",
+    "analista funcional",
+    "desarrollador python",
+    "analista de datos junior", "analista de datos jr",
     "desarrollador full stack junior", "desarrollador full stack jr",
-    "soporte TI", "help desk",   # soporte TI: categoría S (prioridad Baja); el interruptor de la página decide si se ve
+    "informático junior", "informático jr",
+    "soporte TI", "help desk",
 ]
 # Nota: "BPMN UML" (0 resultados en todas las zonas) se reemplazó por "BPMN";
 # los términos con "junior" + varias palabras técnicas no devuelven nada en Indeed.
-TERMINOS_B = [  # roles puente (no TI)
-    "analista de procesos", "mejora continua", "datos maestros", "master data",
-    "analista de reportería", "control de gestión", "usuario clave", "key user",
-    "analista SAP", "analista de implementación",
-    "analista de operaciones", "PMO", "asistente de proyectos",
+TERMINOS_B = [  # roles puente (no TI): recortados a los que trajeron resultados (ver NOTAS, 02-11)
+    "analista de procesos", "mejora continua", "datos maestros",
+    "analista de reportería", "control de gestión", "usuario clave",
     "analista de calidad", "analista de mejora",
-    "coordinador de proyectos junior", "coordinador de proyectos jr", "gestor de proyectos junior", "gestor de proyectos jr",
-    "analista de transformación digital junior", "analista de transformación digital jr",
-    "consultor funcional junior", "consultor funcional jr",
     "analista de requerimientos junior", "analista de requerimientos jr",
 ]
 # Fuentes. Indeed busca con todos los términos; Google y Glassdoor con la lista
@@ -37,20 +30,7 @@ TERMINOS_B = [  # roles puente (no TI)
 # con la ubicación escrita ("Santiago, Chile"). Es un rodeo: ver probar_fuentes.py.
 # Google está desactivado: JobSpy recibe "Google returned no job data" (probado 2026-10-10).
 # Para reintentarlo, agrégalo a la lista: SITIOS = ["indeed", "glassdoor", "google"]
-# Lista optimizada para LinkedIn: solo los puestos que históricamente traen resultados
-TERMINOS_LINKEDIN = [
-    "analista funcional", "QA", "tester", "analista de sistemas",
-    "desarrollador python", "desarrollador backend", "analista de procesos",
-    "datos maestros", "analista de datos junior", "analista de datos jr",
-    "informático junior", "informático jr",
-    "data engineer junior", "data engineer jr", "analista BI junior", "analista BI jr",
-    "devops junior", "devops jr",
-    "analista de calidad", "analista de mejora",
-    "analista de requerimientos junior", "analista de requerimientos jr",
-    "soporte TI", "help desk", "business analyst", "datos maestros"
-]
-
-SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "jooble", "weworkremotely", "arbeitnow"]
+SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "weworkremotely", "arbeitnow"]   # jooble: fuera (2-11, no trae ofertas útiles; el módulo queda por si se reactiva)
 
 # himalayas / jobicy: APIs públicas de empleo remoto (ver himalayas.py y jobicy.py). Traen el listado reciente en una
 # sola solicitud por corrida; el clasificador filtra por rol. Atribución: enlace a la fuente y postulación a la oferta.
@@ -84,43 +64,15 @@ TERMINOS_LINKEDIN = [
 # ---- Explorar remotos (botón aparte): roles fuera de tu perfil TI que podrían calzar, SOLO remotos ----
 # Indeed los busca como "<término> remoto" en Chile (Himalayas y Jobicy, con TERMINOS_EXPLORAR_EN). Las fuentes remotas
 # de la búsqueda normal también alimentan esta lista: el clasificador reconoce estos roles venga de donde venga la oferta.
-TERMINOS_EXPLORAR = [
-    "especialista de implementación", "onboarding", "customer success",
-    "automatización no code", "zapier", "administrador CRM", "hubspot",
-    "entrenador de IA", "evaluador de IA", "etiquetado de datos", "anotación de datos",
-    "redactor técnico", "documentación técnica", "technical writer",
-    "product analyst", "analista de producto", "UX research", "UX writer",
-    "asistente virtual", "asistente administrativo", "back office", "transcripción", "traductor",
-    "moderador de contenido",
-    "freelance", "freelance python", "freelance QA", "freelance datos", "independiente",
-]
+TERMINOS_EXPLORAR = []   # «Explorar remotos» retirado (2-11): vacío, el clasificador ya no asigna la categoría «explorar»
 # Las mismas familias en inglés, para las APIs remotas que buscan por texto (Himalayas y Jobicy; sus robots.txt lo
 # permiten). Remote First Jobs no: su robots.txt prohíbe /api/search-jobs.
-EXPLORAR_APIS = ("himalayas", "jobicy")
-TERMINOS_EXPLORAR_EN = [
-    "customer success", "implementation specialist", "onboarding specialist", "no-code", "hubspot",
-    "ai trainer", "data annotation", "technical writer", "product analyst", "ux research", "virtual assistant",
-    "freelance",
-]
+EXPLORAR_APIS = ()
+TERMINOS_EXPLORAR_EN = []
 # (etiqueta, patrón en el TÍTULO, prioridad). Solo se miran si ninguna regla de tu perfil reconoce el cargo (o si un
 # rol puente no junta sus señales). Pasan los mismos filtros (estafa, práctica, senior, experiencia, empresas) y
 # además deben ser remotos; si no, se descartan.
-ROLES_EXPLORAR = [
-    ("implementación / onboarding", r"implementa(cion|tion)|onboarding", "Alta"),
-    ("automatización sin código / CRM", r"no[ -]?code|low[ -]?code|zapier|\bn8n\b|hubspot|salesforce|\bcrm\b", "Alta"),
-    ("producto", r"product (analyst|operations|ops)|analista de producto", "Alta"),
-    ("documentación técnica", r"technical (writer|content)|redactor tecnico|documentacion tecnica|documentation", "Alta"),
-    ("IA y datos", r"\bai (trainer|tutor|evaluator|rater|annotator)|(entrenador|evaluador|anotador)a? de (ia|inteligencia artificial)"
-                   r"|data (annotat|label)|(etiquetado|anotacion) de datos|\bai training\b|\brater\b", "Media"),
-    ("customer success", r"customer success|client success|exito (del|de) cliente|product support|technical account", "Media"),
-    ("UX", r"\bux\b|user research|usabilidad", "Media"),
-    ("asistente virtual / administrativo", r"asistente (virtual|administrativ|ejecutiv)|(virtual|administrative|executive) assistant", "Baja"),
-    ("back office / operaciones", r"back ?office|operations (assistant|specialist|analyst)|analista administrativ", "Baja"),
-    ("traducción / transcripción", r"traduct|translat|transcri|locali[sz]a|subtitul", "Baja"),
-    ("moderación de contenido", r"moderador|content moderat|trust (and|&) safety", "Baja"),
-    # cualquier cargo freelance que no reconozca otra regla (un "Desarrollador Python freelance" sigue yendo a Ofertas)
-    ("freelance / por proyecto", r"freelanc|independiente|por proyecto|(?<!pago )(?<!pago de )honorarios?(?! medic)", "Baja"),
-]
+ROLES_EXPLORAR = []   # «Explorar remotos» retirado (2-11)
 EXPLORAR_TIPO = "E: Explorar"
 
 NOMBRE_FUENTE = {"indeed": "Indeed", "google": "Google", "glassdoor": "Glassdoor", "getonboard": "Get on Board",
@@ -140,10 +92,11 @@ EXPERIENCIA_SIN_VERIFICAR = "Sin verificar"
 # BNE: "ocupacion:7643" = grupo TI "Desarrolladores y analistas de sistemas". Palabras de menos de 3 letras dan 0 ("qa").
 TERMINOS_BNE = ["ocupacion:7643", "analista funcional", "analista de procesos", "tester", "testing",
                 "calidad de software", "automatizacion de pruebas",
-                "control de gestion", "analista de operaciones", "datos maestros", "mejora continua"]
+                "control de gestion", "analista de operaciones", "datos maestros", "mejora continua",
+                "informatico junior"]
 # Trabajando: solo existen las páginas /trabajo-<término> que el sitio tiene; si no, 404 (se recuerda 30 días).
-TERMINOS_TRABAJANDO = ["analista-funcional", "analista-de-procesos", "analista-qa", "analista-programador",
-                       "desarrollador-backend", "programador", "desarrollador-python"]   # los 3 últimos, sin verificar
+TERMINOS_TRABAJANDO = ["analista-funcional", "analista-qa", "analista-programador",
+                       "desarrollador-backend", "programador", "devops", "informatico"]   # verificados el 2-11: 200 (sin 404)
 TERMINOS_CHILETRABAJOS = ["analista funcional", "analista de procesos", "analista qa", "tester",
                           "analista programador", "desarrollador junior", "desarrollador jr", "analista de datos",
                           "analista de reporteria", "control de gestion", "analista de operaciones", "datos maestros",
@@ -168,11 +121,19 @@ CUES_CHILE = r"chile|\bcl\b|metropolitana|valparaiso|vina del mar|\brm\b|\bvs\b"
 
 # Viña del Mar cubre la Región de Valparaíso por el radio de búsqueda de Indeed
 # (supuesto: si ves que faltan ofertas de Valparaíso, agrégalo aquí).
-UBICACIONES = ["Santiago, Chile", "Viña del Mar, Chile"]
+UBICACIONES = ["Santiago, Chile"]   # Viña del Mar fuera (3-11): casi siempre vacía, pedido de Sofía
 INCLUIR_REMOTO = True
 REGIONES_VALIDAS = {"RM", "VS"}   # presencial/híbrido solo en estas regiones
 
 RESULTADOS_POR_BUSQUEDA = 30
+# LinkedIn pide el detalle de cada oferta (una petición extra por oferta): con 30 por consulta una corrida tardó 30 min
+# (961 ofertas en 45 consultas, 2-11). Con 10 se mantiene el detalle y baja el tiempo (ver NOTAS.md, 03-11).
+RESULTADOS_LINKEDIN = 10
+# Fuentes que no amplían su ventana cuando pasan días sin buscar (ver buscar.ventanas_efectivas)
+SIN_AMPLIAR_VENTANA = ("linkedin",)
+# Fuentes que solo buscan en estas ubicaciones (en vez de todas las de la página). Glassdoor: en la corrida de 03-11
+# casi 4 de cada 5 consultas volvieron vacías en Viña y Remoto, y cada una espera 3-5 s (ver NOTAS.md, 03-11).
+UBICACIONES_SOLO = {"glassdoor": ["Santiago, Chile"]}
 PAUSA_ENTRE_BUSQUEDAS = 1.5       # segundos, para no gatillar bloqueos
 # Pausa aleatoria (mínimo, máximo en segundos) entre consultas JobSpy de las fuentes que limitan más: LinkedIn
 # respondió 429 el 19-10 con 1,5 s. Si igual responde 429, esa fuente se deja por el resto de la corrida.

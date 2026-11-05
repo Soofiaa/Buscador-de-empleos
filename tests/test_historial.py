@@ -43,6 +43,19 @@ def test_corrida_de(detectada, esperado):
     assert buscar.corrida_de(detectada, CORRIDAS) == esperado
 
 
+def test_historial_trae_los_avisos_de_cada_busqueda(tmp_path):
+    con = buscar.conectar(str(tmp_path / "t.db"))
+    det = json.dumps({"fuentes": [], "avisos": ["⚠ Jobicy respondió 429"]})
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES ('2026-10-10 20:44', '2026-10-10 20:49', 0, ?)", (det,))
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES ('2026-10-10 09:00', '2026-10-10 09:05', 0, 'no es json')")
+    con.commit()
+    corridas = buscar.historial_corridas(con)
+    assert corridas[0]["avisos"] == ["⚠ Jobicy respondió 429"]      # la más reciente primero
+    assert corridas[1]["avisos"] == []                              # detalle ilegible: sin avisos, sin romper
+    assert "c.avisos" in PAGINA and 'h("ul", { class: "avisos" }, c.avisos' in PAGINA
+    con.close()
+
+
 def test_corrida_de_sin_historial():
     assert buscar.corrida_de("2026-10-10 20:44", []) is None
 
@@ -65,7 +78,7 @@ def test_ofertas_para_pagina_trae_corridas_y_corrida_id(tmp_path):
     con.commit()
     d = buscar.ofertas_para_pagina(con)
     assert [c["id"] for c in d["corridas"]] == [2, 1]                       # la más reciente primero
-    assert d["corridas"][1] == {"id": 1, "inicio": "2026-10-10 20:44", "fin": "2026-10-10 20:49", "nuevas": 1, "fuentes": fuentes}
+    assert d["corridas"][1] == {"id": 1, "inicio": "2026-10-10 20:44", "fin": "2026-10-10 20:49", "nuevas": 1, "fuentes": fuentes, "avisos": []}
     assert d["corridas"][0]["fuentes"] == []                                # detalle ilegible: sin fuentes, sin romper
     ids = {o["url"]: o["corrida_id"] for o in d["principal"] + d["descartadas"]}
     assert ids == {"http://a": 1, "http://b": 2, "http://c": None, "http://d": 2}

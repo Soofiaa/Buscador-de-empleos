@@ -48,12 +48,12 @@ def _url_limpia(href: str) -> str:
 
 
 def _job_id(url: str) -> str:
-    """Extrae el id numérico de la URL del aviso (último segmento numérico en el path o el final del slug)."""
-    m = re.search(r"-(\d{5,})(?:\?|$)", url)
+    """Extrae el id numérico de la URL del aviso (segmento /jobs/view/<id> o el final del slug)."""
+    m = re.search(r"/jobs/view/(?:[^/?#]*-)?(\d{5,})(?:[/?#]|$)", url)
     if m:
         return m.group(1)
-    partes = urlsplit(url).path.rstrip("/").rsplit("/", 1)
-    return partes[-1] if partes else ""
+    m = re.search(r"-(\d{5,})(?:[/?#]|$)", url)
+    return m.group(1) if m else ""
 
 
 # ---- búsqueda (listado) ----
@@ -161,6 +161,26 @@ def parsear_detalle(html: str) -> Dict:
             criterios[clave] = _limpio(valor.get_text())
 
     return {"descripcion": descripcion, "criterios": criterios}
+
+
+def aviso_formulario(html: str) -> Dict:
+    """Cargo, empresa y ubicación del HTML guest (topcard). La descripción la saca parsear_detalle."""
+    soup = BeautifulSoup(html or "", "html.parser")
+    titulo_el = soup.select_one("h2.top-card-layout__title")
+    empresa_el = soup.select_one("a.topcard__org-name-link")
+    ubic_el = soup.select_one("span.topcard__flavor--bullet")
+    titulo = _limpio(titulo_el.get_text()) if titulo_el else ""
+    empresa = _limpio(empresa_el.get_text()) if empresa_el else ""
+    if not titulo or not empresa:
+        raise ErrorFuente("el aviso de LinkedIn no trae cargo y empresa; complétalo a mano")
+    det = parsear_detalle(html)
+    return {
+        "titulo": titulo[:200],
+        "empresa": empresa[:200],
+        "ubicacion": (_limpio(ubic_el.get_text()) if ubic_el else "")[:200],
+        "descripcion": det["descripcion"][:10000],
+        "criterios": det["criterios"],
+    }
 
 
 def detalle(url: str, cliente, robots) -> Dict:

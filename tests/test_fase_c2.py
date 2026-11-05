@@ -6,7 +6,7 @@ from pathlib import Path
 from test_historial import correr_js
 
 PAGINA = (Path(__file__).resolve().parent.parent / "web" / "pagina.html").read_text(encoding="utf-8")
-ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "descartada"]
+ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "rechazada", "descartada"]
 FASES = ["", "postulacion", "rrhh", "tecnica", "final", "oferta"]
 ORDEN_FASES = FASES                               # "" < postulacion < rrhh < tecnica < final < oferta
 COMBOS = "const COMBOS = %s.flatMap(e => %s.map(f => ({url: e + '/' + f, estado: e, fase: f})));" % (ESTADOS, FASES)
@@ -18,8 +18,8 @@ def test_cada_combinacion_cae_en_exactamente_una_columna_o_fuera_del_tablero():
         COLUMNAS_TABLERO.filter(c => c.id === columnaDe(o)).length]);""")
     esperado = {"revisada": "P", "postulada": "C"}
     for estado, fase, col, veces in r:
-        if estado in ("nueva", "descartada"):
-            assert col is None and veces == 0, (estado, fase)        # descartada sale del tablero (pestaña Descartadas)
+        if estado in ("nueva", "descartada", "rechazada"):
+            assert col is None and veces == 0, (estado, fase)        # descartada y rechazada salen del tablero
         elif estado == "entrevista":
             assert col == ("O" if fase in ("final", "oferta") else "E") and veces == 1, (estado, fase)
         else:

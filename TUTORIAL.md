@@ -94,14 +94,14 @@ Cada tarjeta muestra el cargo, la empresa, la ubicación, la fuente, la priorida
 
 - **Título:** abre el aviso original en una pestaña nueva.
 - **↗:** lo mismo, con un icono más pequeño.
-- **Estado:** elige en la tarjeta entre *Nueva*, *Revisada*, *Postulada*, *En entrevista* o *Descartada*.
+- **Estado:** elige en la tarjeta entre *Nueva*, *Revisada*, *Postulada*, *En entrevista*, *No seleccionada* o *Descartada*.
 - **⚡ Gestionar proceso:** abre el detalle de la oferta, donde puedes fijar la fecha de postulación, escribir notas, marcar la fase del proceso, poner un sueldo propio o cambiar la prioridad.
 
 Las ofertas de **Ofertas** son las que la app considera relevantes. Si una te interesa y no te convence, márcala como descartada: sale de la lista y queda en **Descartadas**, donde puedes recuperarla.
 
 ### Sin texto
 
-Algunas fuentes (hoy, LinkedIn) no entregan la descripción del aviso. La app no puede revisar su experiencia ni su nivel, así que las marca como **Sin texto** y las muestra al final de Ofertas.
+A veces una oferta llega sin la descripción del aviso (puede pasar con LinkedIn o Glassdoor). La app no puede revisar su experiencia ni su nivel, así que las marca como **Sin texto** y las muestra al final de Ofertas.
 
 Para decidirlas:
 1. Abre el aviso con ↗.
@@ -170,7 +170,15 @@ venv\Scripts\python.exe -m pytest -q
 
 > Los valores actuales son de un perfil de TI junior en Chile. Si los dejas tal cual, tendrás resultados de ese perfil, no del tuyo.
 
-## 11. Preguntas frecuentes
+## 11. Análisis con IA
+
+La aplicación incluye un asistente de IA para ayudarte a evaluar si una oferta encaja con tu perfil.
+
+- **Requisito:** necesitas una clave API de **Groq**. Consíguela gratis en [groq.com](https://groq.com/).
+- **Configuración:** guarda tu clave en la variable de entorno `GROQ_API_KEY` (puedes añadirla a tu archivo `.env`).
+- **Uso:** en el detalle de una oferta, la app puede analizar la descripción y darte una puntuación de compatibilidad y puntos fuertes.
+
+## 12. Preguntas frecuentes
 
 **¿La app manda mis datos a algún servidor?**
 No. La base vive en tu equipo. Solo se consultan los portales de empleo, para buscar las ofertas.

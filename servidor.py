@@ -9,8 +9,6 @@
   GET  /api/estado        {buscando, mensaje, error, explorar: {buscando, mensaje, error}, corrida, total_ofertas}
                           (corrida = resumen de la última búsqueda)
   POST /api/buscar        inicia una búsqueda en segundo plano (409 si ya hay una en curso)
-  POST /api/explorar      «Explorar remotos» en segundo plano (409 si ya hay una exploración en curso); puede correr
-                          a la vez que /api/buscar. Sus ofertas llegan en /api/ofertas -> explorar
   POST /api/marcar        {"url", "estado", "fase" (opcional), "origen": tablero|lista|modal} -> {ok, anterior, actual}
                           con estado, fase y fecha_postulacion, escritos en UNA transacción y registrados en
                           historial_estados (la fecha se pone sola al pasar a postulada/entrevista si estaba vacía).
@@ -26,8 +24,13 @@
   POST /api/ajustes/soporte  {"incluir": true|false} (nada más) -> {ok, incluir}
   GET  /api/ajustes/puestos  {lista}: los puestos que busca Indeed (guardados o los de config)
   POST /api/ajustes/puestos  {"lista": [...]} (nada más) -> {ok, lista}; validación en puestos.py
+  GET  /api/ajustes/ubicaciones {lista, remoto}: ubicaciones y si se busca remoto (guardadas o las de config)
+  POST /api/ajustes/ubicaciones {"lista": [...], "remoto": bool} -> {ok, lista, remoto}
   GET  /api/ajustes/exclusiones  {empresas, titulo, descripcion}: lo guardado o los valores de config
   POST /api/ajustes/exclusiones  {empresas, titulo, descripcion} (nada más) -> {ok, ...}; validación en exclusiones.py
+  POST /api/aviso          {"url"} (http/https) -> {ok, aviso: {titulo, empresa, ubicacion, modalidad, sueldo,
+                          descripcion}}. Lee el JobPosting de la página (robots.txt). Si el sitio no lo publica o
+                          rechaza la lectura -> 502 {error}; URL inválida -> 400. No guarda nada.
   POST /api/oferta/manual  {titulo, empresa (obligatorios), url (http/https), ubicacion, modalidad, estado,
                           fecha_postulacion, notas, fase, sueldo_manual, prioridad_manual} -> 201 {ok, oferta};
                           si la URL o la misma oferta (cargo+empresa+ciudad) ya existe y estaba DESCARTADA, la revive
@@ -54,19 +57,26 @@ import sys
 import threading
 import time
 import urllib.parse
+import uuid
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import buscar
 import config
+import ia
+import rellenar_aviso
 import respaldo
+from red import Bloqueo, ClienteHTTP, ErrorFuente, NoEncontrada
+from robots import GestorRobots
 from informe import PAGINA
 
 LOCALES = ("127.0.0.1", "localhost", "[::1]")
 LIMITE_CUERPO = 10_000
 # rutas con textos largos: 5000 caracteres con tildes o emojis ocupan más de 10 KB en UTF-8
-LIMITES_POR_RUTA = {"/api/nota": 64_000, "/api/oferta/manual": 64_000, "/api/descripcion": 64_000}   # 5000 caracteres x 12 bytes si el cliente los escapa como \uXXXX
+LIMITES_POR_RUTA = {"/api/nota": 64_000, "/api/oferta/manual": 64_000, "/api/descripcion": 64_000,
+                    # 10.000 caracteres x hasta 4 bytes UTF-8 (emojis) + el JSON: 48 KB; por encima, 413 antes de leer
+                    "/api/aviso/ia": 48_000}   # 5000 caracteres x 12 bytes si el cliente los escapa como \uXXXX
 MAXIMO_A_DESCARTAR = 1_000_000      # un cuerpo demasiado grande se lee (hasta aquí) y se descarta antes del 413
 CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; "
        "connect-src 'self'; form-action 'none'; base-uri 'none'")
@@ -74,6 +84,12 @@ CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline
 # respaldo en curso y se consolida el -wal, cada cosa con su límite (5 + 3 s, con margen antes del SIGKILL).
 ESPERA_RESPALDO_S = 5
 LIMITE_CHECKPOINT_S = 3
+
+
+def _tiempo_texto(segundos: float) -> str:
+    """'45 s' o '12 min 4 s': lo que muestra el cronómetro al terminar una corrida."""
+    s = int(round(segundos))
+    return f"{s // 60} min {s % 60} s" if s >= 60 else f"{s} s"
 
 
 def _log(mensaje: str) -> None:              # a stderr: queda en `docker logs`
@@ -121,17 +137,13 @@ def _host_local(valor: str) -> bool:
 
 
 class Aplicacion:
-    def __init__(self, ruta_db=None, buscar_fn=None, carpeta_respaldos=None, reloj=None, explorar_fn=None):
+    def __init__(self, ruta_db=None, buscar_fn=None, carpeta_respaldos=None, reloj=None):
         self.ruta_db = ruta_db or config.DB_PATH
         self.buscar_fn = buscar_fn or buscar.buscar_ofertas
         self._lock = threading.Lock()
         self.estado = {"buscando": False, "mensaje": "", "error": ""}
-        # «Explorar remotos» corre aparte, con su propio estado: puede ir al mismo tiempo que «Buscar empleos»
-        self.estado_explorar = {"buscando": False, "mensaje": "", "error": ""}
-        self.trabajos = {"buscar": (self.estado, lambda con: self.buscar_fn(con), "Búsqueda terminada: ",
-                                    ("oferta relevante nueva", "ofertas relevantes nuevas")),
-                         "explorar": (self.estado_explorar, explorar_fn or buscar.explorar_remotos,
-                                      "Exploración terminada: ", ("oferta nueva", "ofertas nuevas"))}
+        self.trabajos = {"buscar": (self.estado, self.buscar_fn, "Búsqueda terminada: ",
+                                    ("oferta relevante nueva", "ofertas relevantes nuevas"))}
         self.hilo = None
         self.carpeta_respaldos = config.RESPALDOS_DIR if carpeta_respaldos is None else carpeta_respaldos
         self.reloj = reloj or buscar.ahora_chile         # inyectable: las pruebas usan un reloj simulado
@@ -145,7 +157,6 @@ class Aplicacion:
     def snapshot(self) -> dict:
         with self._lock:
             est = dict(self.estado)
-            est["explorar"] = dict(self.estado_explorar)
         con = self.conexion()
         try:
             est["corrida"] = buscar.ultima_corrida(con)
@@ -158,6 +169,7 @@ class Aplicacion:
         est["respaldo"] = {**respaldo.estado(self.carpeta_respaldos), "error_auto": self.error_respaldo_auto,
                            "en_curso": en_curso}
         est["nombres_fuentes"] = config.NOMBRE_FUENTE
+        est["fuentes"] = list(config.SITIOS)            # las plataformas que la página deja elegir por corrida
         if en_curso and "incompletos" in est["respaldo"]:
             est["respaldo"]["incompletos"] = None
         return est
@@ -212,26 +224,31 @@ class Aplicacion:
         with self._lock:
             (self.estado if estado is None else estado).update(kw)
 
-    def iniciar_busqueda(self, tipo: str = "buscar") -> bool:
-        """tipo: 'buscar' o 'explorar'. Cada uno, como mucho una vez a la vez; los dos pueden ir juntos."""
-        estado = self.trabajos[tipo][0]
+    def iniciar_busqueda(self, fuentes=None, grupo=None) -> bool:
+        """Una búsqueda a la vez. fuentes: las plataformas marcadas en la página (None = todas). grupo: id común."""
         with self._lock:
-            if estado["buscando"]:
+            if self.estado["buscando"]:
                 return False
-            estado.update(buscando=True, mensaje="Iniciando la búsqueda...", error="")
-        self.hilo = threading.Thread(target=self._correr, args=(tipo,), daemon=True)
+            self.estado.update(buscando=True, mensaje="Iniciando la búsqueda...", error="", inicio=time.time())
+        self.hilo = threading.Thread(target=self._correr, args=(fuentes, grupo), daemon=True)
         self.hilo.start()
         return True
 
-    def _correr(self, tipo: str = "buscar"):
-        estado, fn, fin, (uno, varios) = self.trabajos[tipo]
-        # solo en este hilo: el avance de una búsqueda no pisa el de la otra
+    def iniciar_corrida(self, fuentes=None) -> bool:
+        """«Buscar empleos»: la búsqueda normal con las plataformas marcadas. False si ya hay una en curso."""
+        return self.iniciar_busqueda(fuentes, uuid.uuid4().hex)
+
+    def _correr(self, fuentes=None, grupo=None):
+        estado, fn, fin, (uno, varios) = self.estado, self.buscar_fn, "Búsqueda terminada: ", ("oferta relevante nueva", "ofertas relevantes nuevas")
         buscar.salida_del_hilo.fn = lambda m: self._set(estado, mensaje=str(m).strip().splitlines()[-1] if str(m).strip() else "")
+        buscar.grupo_del_hilo.id = grupo
         con = None
+        t0 = time.monotonic()
         try:
             con = self.conexion()             # dentro del try: si la base no abre, tampoco queda el botón bloqueado
-            nuevas = fn(con)
-            self._set(estado, buscando=False, error="", mensaje=fin + buscar.plural(nuevas, uno, varios) + ".")
+            nuevas = fn(con) if fuentes is None else fn(con, fuentes)
+            tardo = _tiempo_texto(time.monotonic() - t0)
+            self._set(estado, buscando=False, error="", mensaje=fin + buscar.plural(nuevas, uno, varios) + f". Tardó {tardo}.")
         except Exception as ex:               # un fallo no deja el botón bloqueado
             self._set(estado, buscando=False, error="%s: %s" % (type(ex).__name__, ex))
         finally:
@@ -316,6 +333,12 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                     return self._json(200, buscar.leer_exclusiones(con) or buscar.exclusiones_por_defecto())
                 finally:
                     con.close()
+            if ruta == "/api/ajustes/ubicaciones":
+                con = app.conexion()
+                try:
+                    return self._json(200, buscar.leer_ubicaciones(con))
+                finally:
+                    con.close()
             self._json(404, {"error": "no existe"})
 
         def do_POST(self):
@@ -353,10 +376,68 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                     return self._json(500, {"error": str(ex)})
                 except Exception as ex:                     # el servidor sigue; la página muestra el motivo
                     return self._json(500, {"error": f"el respaldo falló: {type(ex).__name__}: {ex}"})
-            if ruta in ("/api/buscar", "/api/explorar"):
-                if app.iniciar_busqueda("buscar" if ruta == "/api/buscar" else "explorar"):
+            if ruta == "/api/buscar":                 # búsqueda normal + exploración de remotos, con las plataformas marcadas
+                fuentes = datos.get("fuentes") if isinstance(datos, dict) else None
+                if fuentes is not None:
+                    if not isinstance(fuentes, list) or not fuentes or any(f not in config.SITIOS for f in fuentes):
+                        return self._json(400, {"error": "elige al menos una plataforma válida"})
+                    fuentes = list(dict.fromkeys(fuentes))
+                if app.iniciar_corrida(fuentes):
                     return self._json(202, {"ok": True})
                 return self._json(409, {"error": "ya hay una búsqueda en curso"})
+            if ruta == "/api/aviso":
+                url = datos.get("url") if isinstance(datos, dict) else None
+                if not isinstance(url, str) or not buscar._url_valida(url.strip()):
+                    return self._json(400, {"error": "la URL debe empezar con http:// o https://"})
+                con = app.conexion()                  # primero lo que ya tienes guardado: no visita ningún sitio
+                try:
+                    guardado = rellenar_aviso.desde_base(con, url.strip())
+                finally:
+                    con.close()
+                if guardado:
+                    return self._json(200, {"ok": True, "aviso": guardado, "origen": "base"})
+                try:
+                    aviso = rellenar_aviso.desde_url(url.strip(), ClienteHTTP(), GestorRobots(buscar.USER_AGENT_HTTP))
+                except (Bloqueo, NoEncontrada, ErrorFuente) as ex:
+                    return self._json(502, {"error": rellenar_aviso.mensaje_error(ex)})
+                except Exception as ex:
+                    return self._json(502, {"error": f"no se pudo leer el aviso: {type(ex).__name__}"})
+                return self._json(200, {"ok": True, "aviso": aviso})
+            if ruta == "/api/aviso/ia":               # texto pegado por ti: la IA lo ordena; no visita ningún sitio
+                texto = datos.get("texto") if isinstance(datos, dict) else None
+                if not isinstance(texto, str):
+                    return self._json(400, {"error": "falta el texto del aviso"})
+                if len(texto.strip()) < ia.MIN_TEXTO_AVISO:
+                    return self._json(400, {"error": "el texto parece demasiado corto para contener una descripción "
+                                                     f"de empleo completa (mínimo {ia.MIN_TEXTO_AVISO} caracteres)"})
+                if len(texto) > ia.MAX_TEXTO_AVISO:
+                    return self._json(400, {"error": f"el texto supera los {ia.MAX_TEXTO_AVISO} caracteres"})
+                aviso = ia.extraer_aviso(texto)
+                if "error" in aviso:
+                    return self._json(502, {"error": aviso["error"]})
+                return self._json(200, {"ok": True, "aviso": aviso})
+            if ruta == "/api/ia":
+                url_oferta = datos.get("url")
+                titulo = datos.get("titulo", "")
+                empresa = datos.get("empresa", "")
+                descripcion = datos.get("descripcion", "")
+                if url_oferta and not descripcion:
+                    con = app.conexion()
+                    try:
+                        row = con.execute("SELECT titulo, empresa, raw FROM ofertas WHERE url = ?", (url_oferta,)).fetchone()
+                        if row:
+                            titulo = titulo or row[0]
+                            empresa = empresa or row[1]
+                            if row[2]:
+                                try:
+                                    raw_obj = json.loads(row[2])
+                                    descripcion = descripcion or raw_obj.get("description", "")
+                                except Exception:
+                                    pass
+                    finally:
+                        con.close()
+                resultado_ia = ia.analizar_oferta(titulo, empresa, descripcion)
+                return self._json(200, {"ok": True, "analisis": resultado_ia})
             escrituras = {
                 "/api/marcar": lambda con, d: buscar.marcar(con, d.get("url"), d.get("estado"), d.get("restaurar"),
                                                             d.get("fase"), d.get("origen")),
@@ -365,6 +446,7 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                 "/api/ajustes/soporte": lambda con, d: buscar.guardar_soporte(con, d),
                 "/api/ajustes/puestos": lambda con, d: buscar.guardar_puestos(con, d),
                 "/api/ajustes/exclusiones": lambda con, d: buscar.guardar_exclusiones(con, d),
+                "/api/ajustes/ubicaciones": lambda con, d: buscar.guardar_ubicaciones(con, d),
                 "/api/oferta/manual": lambda con, d: {"oferta": buscar.crear_oferta_manual(con, d)},
                 "/api/descripcion": lambda con, d: buscar.pegar_descripcion(con, d.get("url"), d.get("descripcion")),
             }

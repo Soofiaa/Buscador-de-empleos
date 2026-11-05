@@ -42,7 +42,7 @@ def con_clave(monkeypatch):
 
 
 def test_registrada_en_config_y_api():
-    assert "jooble" in config.SITIOS and config.NOMBRE_FUENTE["jooble"] == "Jooble"
+    assert "jooble" not in config.SITIOS and config.NOMBRE_FUENTE["jooble"] == "Jooble"   # fuera de la búsqueda (2-11)
     assert "jooble" in buscar.APIS_REMOTAS and buscar.APIS_REMOTAS["jooble"] is jooble
     assert "jooble" in config.FUENTES_SIN_TEXTO      # solo trae resumen: va a «Sin texto»
     assert config.MAX_ANTIGUEDAD_DIAS.get("jooble") == 7
@@ -154,4 +154,4 @@ def test_la_telemetria_recibe_el_status(con_clave, monkeypatch):
     vistos = []
     monkeypatch.setattr(jooble.requests, "post", lambda *a, **k: Respuesta(200, {"jobs": [aviso(3)]}))
     jooble.buscar(termino="qa", resultados=10, al_responder=vistos.append)
-    assert vistos == [200, 200]                                     # una por ciudad
+    assert vistos == [200]                                     # una por ciudad

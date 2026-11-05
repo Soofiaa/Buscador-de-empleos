@@ -49,6 +49,8 @@ VERSION_DB = 7
 salida = print   # salida por defecto (consola)
 # el servidor pone aquí, en el hilo de cada búsqueda, a quién avisar: así «Buscar» y «Explorar» no se mezclan
 salida_del_hilo = threading.local()
+# el servidor pone aquí el id de la búsqueda «Buscar empleos» que corre en ese hilo: la normal y la de remotos lo comparten
+grupo_del_hilo = threading.local()
 
 
 def _say(mensaje: str):
@@ -59,8 +61,8 @@ PORTALES = {"bne": bne, "trabajando": trabajando, "chiletrabajos": chiletrabajos
 # APIs que no buscan por texto: una sola solicitud por corrida, sin ubicación (ver getonboard.py, himalayas.py, jobicy.py)
 APIS_REMOTAS = {"getonboard": getonboard, "himalayas": himalayas, "jobicy": jobicy, "remotefirstjobs": remotefirstjobs,
                 "jooble": jooble, "weworkremotely": weworkremotely, "arbeitnow": arbeitnow}
-ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "descartada"]
-ESTADOS_CERRADOS = {"postulada", "entrevista", "descartada"}
+ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "rechazada", "descartada"]
+ESTADOS_CERRADOS = {"postulada", "entrevista", "rechazada", "descartada"}
 LIMITE_DESCARTADAS = 300   # la página muestra las descartadas más recientes (con su motivo)
 CAMPOS_CLASIF = ["categoria", "razon", "tipo", "prioridad", "modalidad",
                  "contrato", "sueldo", "experiencia", "motivo"]
@@ -214,6 +216,38 @@ def guardar_puestos(con, datos) -> dict:
         con.execute("INSERT OR REPLACE INTO ajustes (clave, valor) VALUES ('puestos', ?)",
                     (json.dumps({"lista": lista}, ensure_ascii=False),))
     return {"lista": lista}
+
+
+def leer_ubicaciones(con) -> dict:
+    """Ubicaciones guardadas, o fallback a config (UBICACIONES + INCLUIR_REMOTO).
+    Retorna: {"lista": [...], "remoto": bool}"""
+    fila = con.execute("SELECT valor FROM ajustes WHERE clave = 'ubicaciones'").fetchone()
+    if fila:
+        try:
+            datos = json.loads(fila[0])
+            lista = datos.get("lista", [])
+            remoto = datos.get("remoto", False)
+            if lista or remoto:
+                return {"lista": lista, "remoto": remoto}
+        except (ValueError, AttributeError):
+            pass
+    return {"lista": list(config.UBICACIONES), "remoto": config.INCLUIR_REMOTO}
+
+
+def guardar_ubicaciones(con, datos) -> dict:
+    """POST /api/ajustes/ubicaciones: {"lista": [...], "remoto": bool}."""
+    if not isinstance(datos, dict):
+        raise ErrorDatos(400, 'se espera {"lista": [...], "remoto": true|false}')
+    lista = [str(u).strip() for u in datos.get("lista", []) if str(u).strip()]
+    if len(lista) > 10 or any(len(u) > 60 or not u.isprintable() for u in lista):
+        raise ErrorDatos(400, "hasta 10 ubicaciones, de máximo 60 caracteres cada una")
+    remoto = bool(datos.get("remoto", False))
+    if not lista and not remoto:
+        raise ErrorDatos(400, "necesitas al menos una ubicación o habilitar 'remoto'")
+    with transaccion(con):
+        con.execute("INSERT OR REPLACE INTO ajustes (clave, valor) VALUES ('ubicaciones', ?)",
+                    (json.dumps({"lista": lista, "remoto": remoto}, ensure_ascii=False),))
+    return {"lista": lista, "remoto": remoto}
 
 
 class BaseOcupada(Exception):
@@ -409,6 +443,8 @@ def conectar(path=None) -> sqlite3.Connection:
             fuente TEXT DEFAULT 'indeed', clave_base TEXT, ciudad TEXT DEFAULT '')""")
     con.execute("""CREATE TABLE IF NOT EXISTS corridas (
         id INTEGER PRIMARY KEY AUTOINCREMENT, inicio TEXT, fin TEXT, nuevas INTEGER, detalle TEXT)""")
+    if "grupo" not in {r[1] for r in con.execute("PRAGMA table_info(corridas)")}:   # shortcut: sin versión propia; las filas viejas quedan sin grupo y se agrupan por tiempo
+        con.execute("ALTER TABLE corridas ADD COLUMN grupo TEXT")
     con.execute("""CREATE TABLE IF NOT EXISTS terminos_no_disponibles (
         sitio TEXT, termino TEXT, hasta TEXT, PRIMARY KEY (sitio, termino))""")
     con.commit()
@@ -534,7 +570,10 @@ def ventanas_efectivas(con, ahora: datetime, explorar: bool = False) -> dict:
             hueco = (ahora.astimezone(ZONA).date() - fin).days + 1
         except ValueError:
             pass
-    return {s: min(config.DIAS_MAXIMOS, max(config.MAX_ANTIGUEDAD_DIAS.get(s, 1), hueco)) for s in config.SITIOS}
+    # LinkedIn no amplía su ventana: si pasan días sin buscar, no trae el hueco entero (lo trae el 961 de 2-11)
+    return {s: (config.MAX_ANTIGUEDAD_DIAS.get(s, 1) if s in config.SIN_AMPLIAR_VENTANA
+                else min(config.DIAS_MAXIMOS, max(config.MAX_ANTIGUEDAD_DIAS.get(s, 1), hueco)))
+            for s in config.SITIOS}
 
 
 def recientes(df: pd.DataFrame, fuente: str, ahora: datetime, dias: int) -> tuple[pd.DataFrame, int]:
@@ -576,7 +615,7 @@ def consulta(sitio: str, termino: str, lugar: str, resultados: int | None = None
         site_name=[sitio],
         search_term=f"{termino} remoto" if remoto else termino,
         location="Chile" if remoto else lugar,
-        results_wanted=resultados or config.RESULTADOS_POR_BUSQUEDA,
+        results_wanted=resultados or (config.RESULTADOS_LINKEDIN if sitio == "linkedin" else config.RESULTADOS_POR_BUSQUEDA),
         hours_old=24 * (dias + 1 if sitio == "glassdoor" else dias), verbose=0,
     )
     if sitio == "indeed":
@@ -585,8 +624,10 @@ def consulta(sitio: str, termino: str, lugar: str, resultados: int | None = None
         kw["country_indeed"] = "usa"   # JobSpy no tiene dominio Glassdoor para Chile: rodeo vía glassdoor.com
         # sin esto el listado llega SIN descripción y no se puede revisar experiencia ni nivel (ver NOTAS.md, 21-10).
         # En Glassdoor el detalle va por el mismo endpoint /graph del listado y pide uno por cada 25 ofertas.
-        # LinkedIn NO lleva este parámetro: ahí sería una solicitud por oferta a /jobs-guest/, que su robots.txt
-        # prohíbe ("Disallow: /" para todos). Sus ofertas quedan en 'sin_descripcion'.
+        kw["fetch_description"] = True
+    elif sitio == "linkedin":
+        # Decisión de Sofia (30-10-2026): se pide el detalle aunque robots.txt diga "Disallow: /". Es una solicitud por
+        # oferta; si falla, la oferta llega sin texto y queda en 'sin_descripcion' como antes.
         kw["fetch_description"] = True
     return kw
 
@@ -625,8 +666,10 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
     mod, nombre = PORTALES[sitio], config.NOMBRE_FUENTE[sitio]
     ahora, dias = ahora or ahora_chile(), dias or config.MAX_ANTIGUEDAD_DIAS.get(sitio, 1)
     terminos = _terminos_portal(sitio)
-    frames, seguidos, sin_pagina = [], 0, []
+    frames, seguidos, sin_pagina, descartados = [], 0, [], set()   # descartados: fallaron o dieron 0 en esta corrida
     for i, termino in enumerate(terminos, start=1):
+        if termino in descartados:
+            continue
         if sitio == "trabajando" and _termino_recordado_404(con, sitio, termino):
             sin_pagina.append(termino)
             continue
@@ -638,13 +681,15 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
         except NoEncontrada:
             _recordar_404(con, sitio, termino)
             sin_pagina.append(termino)
-            _say(f"  [{sitio} {i}/{len(terminos)}] {termino}: sin página en el sitio "
-                 f"(se recuerda {plural(config.DIAS_RECORDAR_404, 'día', 'días')})")
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: sin página en el sitio "
+                 f"(se recuerda {plural(config.DIAS_RECORDAR_404, 'día', 'días')}; se descarta en esta corrida)")
             continue
         except ErrorFuente as e:
             st["errores"] += 1
             seguidos += 1
-            _say(f"  ! [{sitio}] {termino}: {e}")
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: error ({e}); se descarta en esta corrida")
             if seguidos >= config.ERRORES_SEGUIDOS_PARA_ABORTAR:
                 avisos.append(f"⚠ {nombre}: {seguidos} errores seguidos; se dejó de insistir en esta corrida.")
                 break
@@ -652,6 +697,10 @@ def _buscar_portal(con, sitio, st, avisos, cliente, robots, ahora: datetime | No
         seguidos = 0
         if tele is not None:
             telemetria.anotar_si_vacio(tele, df)            # tolerante: con df None o raro no lanza
+        if df is None or len(df) == 0:
+            descartados.add(termino)
+            _say(f"  ⚠ [{sitio} {i}/{len(terminos)}] {termino}: 0 resultados; se descarta en esta corrida")
+            continue
         df, antiguas = recientes(df, sitio, ahora, dias)   # antes de clasificar y de abrir detalles
         st["encontradas"] += len(df)
         st["antiguas"] = st.get("antiguas", 0) + antiguas
@@ -772,41 +821,86 @@ def _intercalar(plan: list, sitio: str) -> list:
     return salida + pendientes
 
 
-def buscar_ofertas(con) -> int:
+def _en_hilo(fn, *args):
+    """Corre fn en otro hilo. La salida y el grupo son locales de hilo: el hilo nuevo hereda los del que lo lanza.
+    Devuelve (hilo, resultado): el resultado queda en res["ok"] o res["error"] cuando termina el hilo."""
+    salida_fn, grupo = getattr(salida_del_hilo, "fn", salida), getattr(grupo_del_hilo, "id", None)
+    res = {}
+    def correr():
+        salida_del_hilo.fn, grupo_del_hilo.id = salida_fn, grupo
+        try:
+            res["ok"] = fn(*args)
+        except Exception as e:
+            res["error"] = e
+    hilo = threading.Thread(target=correr, name=fn.__name__)
+    hilo.start()
+    return hilo, res
+
+
+def _portales(ruta_db, activos, stats, avisos, tele, ahora, ventanas) -> int:
+    """BNE, Trabajando, Chiletrabajos, Chumi y Laborum, en orden, en su propio hilo. Tiene su propia conexión a la base
+    (sqlite no se comparte entre hilos). Un fallo de un portal no corta a los demás."""
+    con = _abrir(ruta_db)
+    cliente, robots, total = ClienteHTTP(), GestorRobots(USER_AGENT_HTTP), 0
+    try:
+        for sitio in activos:
+            anotar = (lambda status, t=tele[sitio]: telemetria.anotar_status(t, status))
+            cliente.al_responder = robots.al_responder = anotar       # el robots.txt de cada sitio cuenta para él
+            try:                          # un fallo inesperado de un portal no corta la corrida ni deja de registrarla
+                total += _buscar_portal(con, sitio, stats[sitio], avisos, cliente, robots, ahora, ventanas[sitio],
+                                        tele=tele[sitio])
+            except Exception as e:
+                stats[sitio]["errores"] += 1
+                avisos.append(f"⚠ {config.NOMBRE_FUENTE[sitio]} falló: {type(e).__name__}: {e}. Se siguió con las demás.")
+                _say(f"  ! [{sitio}] {type(e).__name__}: {e}")
+    finally:
+        con.close()
+    return total
+
+
+def buscar_ofertas(con, fuentes=None) -> int:
     from jobspy import scrape_jobs  # import aquí: los tests no lo necesitan
     _vigilar_429()
     aplicar_exclusiones(con)   # las exclusiones que Sofia guardó, antes de clasificar lo que llegue
+    sitios = list(config.SITIOS) if fuentes is None else [s for s in config.SITIOS if s in fuentes]   # las marcadas
 
-    lugares = list(config.UBICACIONES) + ([REMOTO] if config.INCLUIR_REMOTO else [])
-    terminos_indeed = leer_puestos(con)     # la lista que Sofia editó, o la de config
+    ubic = leer_ubicaciones(con)
+    lugares = list(ubic["lista"]) + ([REMOTO] if ubic["remoto"] else [])
+    terminos_indeed = leer_puestos(con)     # la lista libre que el usuario edita, o la de config
     terminos_linkedin = config.TERMINOS_LINKEDIN
-    plan = [(s, t, l) for s in config.SITIOS if s not in PORTALES
+    plan = [(s, t, l) for s in sitios if s not in PORTALES
             for t in (terminos_indeed if s == "indeed"
                       else terminos_linkedin if s == "linkedin"
                       else [""] if s in APIS_REMOTAS else config.TERMINOS_SECUNDARIOS)
-            for l in (["Chile"] if s in APIS_REMOTAS else lugares)]   # las APIs no usan ubicación ni término
+            for l in (["Chile"] if s in APIS_REMOTAS else config.UBICACIONES_SOLO.get(s, lugares))]   # las APIs no usan ubicación ni término
     # LinkedIn no va en ráfaga: sus consultas se intercalan con los turnos de las demás fuentes (ver _intercalar)
     for sitio in config.DISTANCIAR:
         plan = _intercalar(plan, sitio)
-    stats = {s: {"encontradas": 0, "antiguas": 0, "relevantes": 0, "sin_chile": 0, "errores": 0} for s in config.SITIOS}
+    stats = {s: {"encontradas": 0, "antiguas": 0, "relevantes": 0, "sin_chile": 0, "errores": 0} for s in sitios}
     # telemetría pasiva (solo contadores): JobSpy no expone sus solicitudes, se cuentan sus llamadas, también por ubicación
     tele = {s: (telemetria.contador("http") if s in PORTALES or s in APIS_REMOTAS
-                else telemetria.contador("consulta", lugares)) for s in config.SITIOS}
+                else telemetria.contador("consulta", lugares)) for s in sitios}
     total = 0
     avisos = []
     ahora = ahora_chile()
     inicio = ahora.strftime("%Y-%m-%d %H:%M")
     ventanas = ventanas_efectivas(con, ahora)
-    ampliadas = [config.NOMBRE_FUENTE[s] for s in config.SITIOS if ventanas[s] > config.MAX_ANTIGUEDAD_DIAS.get(s, 1)]
+    ampliadas = [config.NOMBRE_FUENTE[s] for s in sitios if ventanas[s] > config.MAX_ANTIGUEDAD_DIAS.get(s, 1)]
     if ampliadas:
         avisos.append(f"Pasaron días sin buscar: ventana ampliada a {plural(max(ventanas.values()), 'día', 'días')} "
                       f"({', '.join(ampliadas)}) para no perder ofertas de ese hueco.")
     # una API sin clave (Jooble sin JOOBLE_KEY) no se consulta: se dice por qué, no que «no hubo resultados»
     sin_clave = {s for s in APIS_REMOTAS if hasattr(APIS_REMOTAS[s], "disponible") and not APIS_REMOTAS[s].disponible()}
-    for s in sorted(sin_clave & set(config.SITIOS)):
+    for s in sorted(sin_clave & set(sitios)):
         avisos.append(f"{config.NOMBRE_FUENTE[s]} no se consultó: falta la clave ({s.upper()}_KEY) en el entorno.")
     plan = [p for p in plan if p[0] not in sin_clave]
+    # los portales van en su propio hilo mientras JobSpy y las APIs siguen aquí (ver _portales)
+    activos = [s for s in sitios if s in PORTALES]
+    hilo_portales, res_portales = _en_hilo(
+        _portales, con.execute("PRAGMA database_list").fetchone()[2], activos, stats, avisos, tele, ahora, ventanas
+    ) if activos else (None, {})
     frenadas = set()
+    descartados = set()          # (sitio, término, lugar) que fallaron o dieron 0 en esta corrida: no se repiten
     for n, (sitio, termino, lugar) in enumerate(plan, start=1):
         etiqueta = f"{termino} | {lugar}"
         st = stats[sitio]
@@ -819,6 +913,8 @@ def buscar_ofertas(con) -> int:
                               "resto de esta corrida. No se insiste.")
                 _say(f"  ! [{sitio}] 429: se deja por esta corrida")
             continue
+        if (sitio, termino, lugar) in descartados:
+            continue
         try:
             if sitio in APIS_REMOTAS:
                 df = APIS_REMOTAS[sitio].buscar(termino, config.RESULTADOS_POR_BUSQUEDA,
@@ -827,11 +923,15 @@ def buscar_ofertas(con) -> int:
                 df = scrape_jobs(**consulta(sitio, termino, lugar, dias=ventanas[sitio]))
         except Exception as e:
             st["errores"] += 1
+            descartados.add((sitio, termino, lugar))
             if sitio not in APIS_REMOTAS:             # las APIs ya anotaron cada solicitud con su status
                 telemetria.anotar_excepcion(t, e, lugar)
-            _say(f"  ! [{sitio}] {etiqueta}: {type(e).__name__}: {e}")
+            _say(f"  ⚠ [{sitio}] {etiqueta}: falló ({type(e).__name__}: {e}); se descarta en esta corrida")
             continue
         vacia = df is None or len(df) == 0
+        if vacia:
+            descartados.add((sitio, termino, lugar))
+            _say(f"  ⚠ [{sitio}] {etiqueta}: 0 resultados; se descarta en esta corrida")
         if sitio in APIS_REMOTAS:
             if vacia:
                 telemetria.anotar_vacia(t)
@@ -850,19 +950,12 @@ def buscar_ofertas(con) -> int:
              + (f", {plural(antiguas, 'antigua omitida', 'antiguas omitidas')}" if antiguas else ""))
         time.sleep(_pausa_jobspy(sitio))
 
-    activos = [s for s in config.SITIOS if s in PORTALES]
-    if activos:
-        cliente, robots = ClienteHTTP(), GestorRobots(USER_AGENT_HTTP)
-        for sitio in activos:
-            anotar = (lambda status, t=tele[sitio]: telemetria.anotar_status(t, status))
-            cliente.al_responder = robots.al_responder = anotar       # el robots.txt de cada sitio cuenta para él
-            try:                          # un fallo inesperado de un portal no corta la corrida ni deja de registrarla
-                total += _buscar_portal(con, sitio, stats[sitio], avisos, cliente, robots, ahora, ventanas[sitio],
-                                        tele=tele[sitio])
-            except Exception as e:
-                stats[sitio]["errores"] += 1
-                avisos.append(f"⚠ {config.NOMBRE_FUENTE[sitio]} falló: {type(e).__name__}: {e}. Se siguió con las demás.")
-                _say(f"  ! [{sitio}] {type(e).__name__}: {e}")
+    if hilo_portales is not None:
+        hilo_portales.join()
+        if "error" in res_portales:           # no debería pasar: _portales atrapa cada portal; esto cubre la conexión
+            avisos.append(f"⚠ Los portales fallaron: {type(res_portales['error']).__name__}: {res_portales['error']}")
+        else:
+            total += res_portales.get("ok", 0)
 
     _say("\nPor fuente (encontradas / relevantes nuevas / descartadas por no ser Chile / errores / antiguas omitidas):")
     for sitio, st in stats.items():
@@ -885,77 +978,12 @@ def buscar_ofertas(con) -> int:
         print(telemetria.resumen({config.NOMBRE_FUENTE[s]: tele[s] for s in stats}), file=sys.stderr, flush=True)
     except Exception:
         pass
-    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle) VALUES (?, ?, ?, ?)",
-                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False)))
+    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, grupo) VALUES (?, ?, ?, ?, ?)",
+                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False),
+                 getattr(grupo_del_hilo, "id", None)))
     con.commit()
     return total
 
-
-def explorar_remotos(con) -> int:
-    """Botón «Explorar remotos»: busca los TERMINOS_EXPLORAR en Indeed (remotos en Chile) y los TERMINOS_EXPLORAR_EN en
-    las APIs remotas que buscan por texto (EXPLORAR_APIS). Puede correr junto con la búsqueda normal: nada de LinkedIn
-    ni Glassdoor, y no toca la ventana de días de la otra. Devuelve cuántas ofertas nuevas no descartadas guardó (en
-    'explorar' o, si el cargo resultó ser de tu perfil, en Ofertas)."""
-    from jobspy import scrape_jobs
-    _vigilar_429(limpiar=False)
-    aplicar_exclusiones(con)
-    plan = ([("indeed", t) for t in config.TERMINOS_EXPLORAR]
-            + [(s, t) for s in config.EXPLORAR_APIS for t in config.TERMINOS_EXPLORAR_EN])
-    sitios = list(dict.fromkeys(s for s, _ in plan))
-    stats = {s: {"encontradas": 0, "antiguas": 0, "relevantes": 0, "sin_chile": 0, "errores": 0} for s in sitios}
-    tele = {s: telemetria.contador("http") if s in APIS_REMOTAS else telemetria.contador("consulta", [REMOTO])
-            for s in sitios}
-    avisos, total, frenadas = [], 0, set()
-    ahora = ahora_chile()
-    inicio = ahora.strftime("%Y-%m-%d %H:%M")
-    ventanas = ventanas_efectivas(con, ahora, explorar=True)
-    for n, (sitio, termino) in enumerate(plan, start=1):
-        st, t = stats[sitio], tele[sitio]
-        if sitio in frenadas or sitio in _VIGIA_429.frenadas:     # ante un 429 no se insiste (ver _Vigia429)
-            if sitio not in frenadas:
-                frenadas.add(sitio)
-                st["errores"] += 1
-            if not any(config.NOMBRE_FUENTE[sitio] in a for a in avisos):
-                avisos.append(f"⚠ {config.NOMBRE_FUENTE[sitio]} respondió 429 (demasiadas consultas): se dejó en esta "
-                              "exploración. No se insiste.")
-            continue
-        try:
-            if sitio in APIS_REMOTAS:
-                df = APIS_REMOTAS[sitio].buscar(termino, config.RESULTADOS_POR_BUSQUEDA,
-                                                al_responder=lambda status, t=t: telemetria.anotar_status(t, status))
-            else:
-                df = scrape_jobs(**consulta(sitio, termino, REMOTO, dias=ventanas[sitio]))
-        except Exception as e:
-            st["errores"] += 1
-            if getattr(getattr(e, "response", None), "status_code", None) == 429:
-                frenadas.add(sitio)
-            if sitio not in APIS_REMOTAS:
-                telemetria.anotar_excepcion(t, e, REMOTO)
-            _say(f"  ! [explorar] {sitio} | {termino}: {type(e).__name__}: {e}")
-            continue
-        vacia = df is None or len(df) == 0
-        if sitio in APIS_REMOTAS:
-            if vacia:
-                telemetria.anotar_vacia(t)
-        else:
-            telemetria.anotar_consulta(t, 0 if vacia else len(df), REMOTO)
-        df, antiguas = recientes(df if df is not None else pd.DataFrame(), sitio, ahora, ventanas[sitio])
-        filas = procesar(df, f"explorar | {termino} | {REMOTO if sitio == 'indeed' else 'remoto'}", sitio)
-        nuevas = guardar(con, filas)
-        total += nuevas
-        st["encontradas"] += len(df)
-        st["antiguas"] += antiguas
-        st["relevantes"] += nuevas
-        _say(f"  [{n}/{len(plan)}] {sitio} | {termino}: {plural(len(df), 'encontrada', 'encontradas')}, "
-             f"{plural(nuevas, 'nueva', 'nuevas')}")
-        time.sleep(_pausa_jobspy(sitio))
-    detalle = {"fuentes": [{"fuente": config.NOMBRE_FUENTE[s] + " (explorar)", **stats[s], "ventana_dias": ventanas[s],
-                            "telemetria": tele[s]} for s in sitios],
-               "ventana_dias": {s: ventanas[s] for s in sitios}, "avisos": avisos}
-    con.execute("INSERT INTO corridas (inicio, fin, nuevas, detalle, origen) VALUES (?, ?, ?, ?, 'explorar')",
-                (inicio, ahora_chile().strftime("%Y-%m-%d %H:%M"), total, json.dumps(detalle, ensure_ascii=False)))
-    con.commit()
-    return total
 
 
 # ------------------------------------------------------------------ datos para la página
@@ -1016,18 +1044,63 @@ def ofertas_para_pagina(con) -> dict:
     return datos
 
 
-def historial_corridas(con) -> list[dict]:
-    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes}."""
-    corridas = []
-    for r in con.execute("SELECT id, inicio, fin, nuevas, detalle FROM corridas ORDER BY inicio DESC, id DESC"):
+def _como_lista(valor) -> list:
+    return valor if isinstance(valor, list) else []
+
+
+def _solapan(a: dict, b: dict) -> bool:
+    return a["inicio"][:16] <= b["fin"][:16] and b["inicio"][:16] <= a["fin"][:16]
+
+
+def _unir(partes: list[dict]) -> dict:
+    """Una búsqueda a partir de sus filas en corridas. Con dos (normal + exploración), fuentes y avisos de ambas."""
+    if len(partes) == 1:
+        p = partes[0]
+        return {"id": p["id"], "inicio": p["inicio"], "fin": p["fin"], "nuevas": p["nuevas"], "detalle": p["detalle"]}
+    partes = sorted(partes, key=lambda p: p["explorar"])          # la normal primero: manda su detalle base
+    detalle = dict(partes[0]["detalle"])
+    for k in ("fuentes", "avisos"):
+        detalle[k] = [x for p in partes for x in _como_lista(p["detalle"].get(k))]
+    return {"id": max(p["id"] for p in partes), "inicio": min(p["inicio"] for p in partes),
+            "fin": max(p["fin"] for p in partes), "nuevas": sum(p["nuevas"] for p in partes), "detalle": detalle}
+
+
+def _busquedas(con) -> list[dict]:
+    """Una entrada por búsqueda, la más reciente primero. «Buscar empleos» guarda la normal y la de remotos con el mismo
+    grupo; las filas viejas (sin grupo) se juntan por solapamiento de minutos, una de cada tipo."""
+    grupos = []           # cada grupo: lista de filas de una misma búsqueda
+    por_id = {}           # grupo explícito -> su lista
+    for r in con.execute("SELECT id, inicio, fin, nuevas, detalle, COALESCE(origen, '') AS origen, grupo "
+                         "FROM corridas ORDER BY inicio DESC, id DESC"):
         try:
             detalle = json.loads(r["detalle"] or "{}")
         except ValueError:
             detalle = {}
-        fuentes = detalle.get("fuentes") if isinstance(detalle, dict) else None
-        corridas.append({"id": r["id"], "inicio": r["inicio"], "fin": r["fin"], "nuevas": r["nuevas"] or 0,
-                         "fuentes": fuentes if isinstance(fuentes, list) else []})
-    return corridas
+        f = {"id": r["id"], "inicio": r["inicio"], "fin": r["fin"], "nuevas": r["nuevas"] or 0,
+             "explorar": r["origen"] == "explorar", "grupo": r["grupo"],
+             "detalle": detalle if isinstance(detalle, dict) else {}}
+        if r["grupo"]:
+            if r["grupo"] in por_id:
+                por_id[r["grupo"]].append(f)
+            else:
+                por_id[r["grupo"]] = [f]
+                grupos.append(por_id[r["grupo"]])
+            continue
+        def cabe(g):
+            return all(p["explorar"] != f["explorar"] for p in g) and any(_solapan(p, f) for p in g)
+        g = next((g for g in grupos if not any(p.get("grupo") for p in g) and cabe(g)), None)
+        if g is None:
+            grupos.append([f])
+        else:
+            g.append(f)
+    return [_unir(g) for g in grupos]
+
+
+def historial_corridas(con) -> list[dict]:
+    """Las búsquedas registradas, la más reciente primero: {id, inicio, fin, nuevas, fuentes, avisos}."""
+    return [{"id": b["id"], "inicio": b["inicio"], "fin": b["fin"], "nuevas": b["nuevas"],
+             "fuentes": _como_lista(b["detalle"].get("fuentes")),
+             "avisos": _como_lista(b["detalle"].get("avisos"))} for b in _busquedas(con)]
 
 
 def corrida_de(detectada_en, corridas: list[dict]):
@@ -1332,7 +1405,7 @@ def crear_oferta_manual(con, datos) -> dict:
                                         (otra if isinstance(otra, str) else otra[0],)).fetchone()
         if existente is not None:
             # una descartada no es un duplicado: se revive con lo que trae el formulario (y queda en el historial)
-            if existente["estado"] == "descartada" and estado != "descartada":
+            if existente["estado"] in ("descartada", "rechazada") and estado not in ("descartada", "rechazada"):
                 return _revivir_descartada(con, existente, seguimiento, d)
             resumen = _resumen_oferta(existente)
             if existente["url"] == fila["url"]:       # misma URL: no hay forma de guardar dos filas
@@ -1399,12 +1472,8 @@ def _con_prioridad_mostrada(o: dict) -> dict:
 
 
 def ultima_corrida(con):
-    fila = con.execute("SELECT * FROM corridas ORDER BY id DESC LIMIT 1").fetchone()
-    if not fila:
-        return None
-    d = dict(fila)
-    d["detalle"] = json.loads(d.pop("detalle") or "{}")
-    return d
+    busquedas = _busquedas(con)
+    return busquedas[0] if busquedas else None
 
 
 def resumen(principal: list[dict]) -> str:

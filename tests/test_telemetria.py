@@ -427,15 +427,14 @@ def corrida_ubicaciones(tmp_path, monkeypatch, sitio, responder):
     return c, buscar.ultima_corrida(c)["detalle"]
 
 
-@pytest.mark.parametrize("sitio, nombre", [("indeed", "Indeed"), ("glassdoor", "Glassdoor")])
-def test_por_ubicacion_en_una_corrida_y_en_la_linea(tmp_path, monkeypatch, capsys, sitio, nombre):
+def test_por_ubicacion_en_una_corrida_y_en_la_linea(tmp_path, monkeypatch, capsys):
     def responder(location, termino):
         if termino.endswith(" remoto"):                                         # "Chile (remoto)" pide "... remoto"
             return RuntimeError("HTTP 429 Too Many Requests")
         if location == "Santiago, Chile":
             return df_de({"job_url": "http://hoy/privada?x=1", "title": "QA Tester", "date_posted": "2026-10-11"})
         return pd.DataFrame()
-    c, detalle = corrida_ubicaciones(tmp_path, monkeypatch, sitio, responder)
+    c, detalle = corrida_ubicaciones(tmp_path, monkeypatch, "indeed", responder)
     t = detalle["fuentes"][0]["telemetria"]
     assert t["por_ubicacion"] == {"Santiago, Chile": {"consultas": 1, "vacias": 0, "errores": 0},
                                   "Viña del Mar, Chile": {"consultas": 1, "vacias": 1, "errores": 0},
@@ -446,7 +445,7 @@ def test_por_ubicacion_en_una_corrida_y_en_la_linea(tmp_path, monkeypatch, capsy
     guardado = json.dumps(detalle, ensure_ascii=False)
     assert "terminoSecreto" not in guardado and "privada" not in guardado and "QA Tester" not in guardado
     linea = [l for l in capsys.readouterr().err.splitlines() if l.startswith("[corrida] ")]
-    assert linea == [f"[corrida] {nombre}: 3 consultas (200 no medido, 429=1), 1 vacía "
+    assert linea == [f"[corrida] Indeed: 3 consultas (200 no medido, 429=1), 1 vacía "
                      "[Santiago 1/0, Viña 1/1, remoto 1/0 (1 error)]"]
     assert "terminoSecreto" not in linea[0]
 

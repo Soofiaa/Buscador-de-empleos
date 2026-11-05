@@ -1,5 +1,180 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 04-11-2026 (commit `bf88ece`, rama `feat/unificar-ofertas`): autocompletado de LinkedIn
+
+Cambia solo: el autocompletado de avisos de LinkedIn lee el HTML de invitado (`jobs-guest/jobs/api/jobPosting/<id>`)
+en vez de buscar JSON-LD, y si LinkedIn rechaza la lectura pide pegar el texto del aviso. No cambia el esquema (v7) ni
+la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0` |
+| Imagen anterior | `job-tracker:pre_autocompletado_linkedin_20261104`, `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361` |
+| Base de referencia | `ofertas_pre_autocompletado_linkedin_20261104.db`, en el volumen y en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `6D905D90340FB11CBC90DC2392010F601F293874F51905A3884E9A4E46A459EA`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8515 ofertas; 48 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre_autocompletado_linkedin_20261104 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: el autocompletado de LinkedIn por HTML de invitado (vuelve el mensaje de JSON-LD ausente).
+
+Prueba de reversión: la imagen anterior levantada sobre una copia de la referencia en el volumen temporal
+`jt_revision_autocompletado` (127.0.0.1:8767): healthy, `/api/estado` y `/api/ofertas` 200. Volumen y contenedor
+borrados después.
+
+Huellas antes y después: RESULTADO OK (sin tablas cambiadas).
+
+---
+
+## Despliegue del 03-11-2026 (commit `3e806ef`, rama `feat/unificar-ofertas`): sin Viña del Mar
+
+Cambia solo: las ubicaciones de Indeed y Jooble son solo Santiago (antes Santiago y Viña del Mar). Motivo: la corrida
+de 13 minutos y que Viña casi siempre vino vacía. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361` |
+| Imagen anterior | `job-tracker:pre-vina-20261103`, `sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893` |
+| Base de referencia | `ofertas_pre_vina_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `3d14f868cdeac10c1f4edd3486801f78b25d628d3f47d4b919f24feba354fc02`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8204 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-vina-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: las consultas de Indeed y Jooble en Viña del Mar.
+
+---
+
+## Despliegue del 03-11-2026 (commit `259828e`, rama `feat/unificar-ofertas`): Glassdoor solo en Santiago
+
+Cambia solo: Glassdoor consulta solo Santiago (antes Santiago, Viña y Remoto). Motivo: una corrida de 17 minutos con
+58 de 75 consultas de Glassdoor vacías. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:e3759802c5dda62374293c96a05afb65953454c3d3051e2bbf3d376df6e81893` |
+| Imagen anterior | `job-tracker:pre-glassdoor-santiago-20261103`, `sha256:a2784e2378d4616fde4b1910a9c4d8895aa69e1d89a9db491d5297599459e2a6` |
+| Base de referencia | `ofertas_pre_glassdoor_santiago_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `2b4168796f1ab9fdc6c634903be6f940aa5923aff70d22470e082542cb62eae2`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8174 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-glassdoor-santiago-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: las consultas de Glassdoor en Viña del Mar y Remoto.
+
+---
+
+## Despliegue del 03-11-2026 (commit `74bf1b1`, rama `feat/unificar-ofertas`): LinkedIn con 10 resultados y ventana fija
+
+Cambia solo: LinkedIn pide 10 resultados por consulta (antes 30) y su ventana no se amplía cuando pasan días sin
+buscar. Motivo: una corrida de 30 minutos con 961 ofertas de LinkedIn. No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:a2784e2378d4616fde4b1910a9c4d8895aa69e1d89a9db491d5297599459e2a6` |
+| Imagen anterior | `job-tracker:pre-linkedin-10-20261103`, `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8` |
+| Base de referencia | `ofertas_pre_linkedin10_20261103.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `c87fea4a08c8f83af3f16944a1547c696814138a3300d0f724ef153f5c0bfe5d`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8092 ofertas; 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-linkedin-10-20261103 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: el tope de 10 por consulta (LinkedIn vuelve a traer 30) y la ventana fija (vuelve a ampliarse si pasan días).
+
+---
+
+## Despliegue del 02-11-2026 (commit `4916a33`, rama `feat/unificar-ofertas`): sin Explorar remotos ni Jooble
+
+Quita «Explorar remotos» (ruta `/api/explorar`, columna Remotos, búsqueda aparte) y Jooble de la lista de fuentes. No
+cambia el esquema (v7) ni la base: la tabla `ajustes` queda igual, y las ofertas y corridas antiguas de exploración
+siguen en la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:45890e25f7558239669b08f5571309ccd03fae469c674b70065e4fb5e1dad4f8` |
+| Imagen anterior | `job-tracker:pre-quitar-remotos-20261102` (la que corría antes de este despliegue: código del commit `893a3b7`, con Explorar remotos) |
+| Base de referencia | `ofertas_pre_quitar_remotos_20261102.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `0d62b9b943c0c4ddbbfdb066936921994c8766b0bcbb1f6619de639ba6ca0a8c`; `integrity_check=ok` |
+| Línea base | SQLite v7; 7922 ofertas, 111 corridas, 501 filas en `historial_estados`, 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-quitar-remotos-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: la columna Remotos y el botón de exploración. Las ofertas que quedaron en la categoría «explorar» dejan de
+verse en la página (siguen en la base).
+
+---
+
+## Despliegue del 02-11-2026 (commit `f862ee9`, rama `feat/unificar-ofertas`)
+
+Cambia solo: lista de términos de Trabajando (sin 404), avisos ⚠ por término en consola y descarte de término+ubicación
+que falla o da 0 en la corrida. No cambia el esquema (v7) ni reclasifica nada.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:eaf44072515b99e41ffefe29f9044d5e114c995b9766915b49c9bbfd3f29a4c6` |
+| Imagen anterior | `job-tracker:respaldo-20261102`, `sha256:70ff4f4e6aed` (id corto; comprobar con `docker images`) |
+| Base de referencia | `ofertas_pre_trabajando_terminos_20261102.db`, en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `24e3ed80986999750c2e841ee235d9e938230e5d51bdb1f93986c072e354b84d`; `integrity_check=ok` |
+| Línea base | SQLite v7; 7836 ofertas, 104 corridas, 501 filas en `historial_estados`, 46 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:respaldo-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Comprobar GET `/api/estado` y las huellas de `/datos/ofertas.db` contra la referencia. Se pierde: los avisos ⚠ por
+término y la lista nueva de Trabajando (vuelve a pedir `analista-de-procesos` y `desarrollador-python`, que dan 404).
+
+Prueba de reversión: copia de la base en un volumen temporal (`jt_revision_reversion`): versión 7, integridad ok,
+7836 ofertas. Volumen borrado después.
+
+---
+
 Despliegue del 29-10-2026, commits `b723f1f`, `cdf5c0c`, `72ca06a` (rama `feat/unificar-ofertas`). No cambia el esquema ni reclasifica ofertas guardadas. Solo cambia: NOTAS.md compacto, avisos de fuentes sin clave o en 0 en la página, y ruta por defecto de base local fuera de OneDrive.
 
 | Pieza | Valor |
@@ -782,3 +957,115 @@ docker compose up -d --no-build
 **Qué se pierde al volver:** vuelve la búsqueda larga de LinkedIn (~38 min por corrida). No se pierden ofertas ni estados.
 Reversión probada en copia (volumen temporal, 8767): healthy, GET / 200 y huellas idénticas a la referencia.
 
+
+## Descripción de LinkedIn (30-10-2026)
+
+Commits 2492207 y f348b48 (rama feat/unificar-ofertas, con push): LinkedIn pide el detalle de cada oferta con JobSpy (`fetch_description`), por decisión de Sofia aunque su robots.txt lo prohíbe; modelo de Groq `qwen/qwen3.8-27b` y `GROQ_API_KEY` en compose. Base sin cambios, sin reclasificar: las ofertas ya guardadas en «Sin texto» siguen ahí.
+Imagen anterior: job-tracker:pre-linkedin-desc (sha256:387c32eaa008e04dda9b5d823b9cc72fdcd238ab1e36f3a5da5b2729bf5c4fb9). Imagen desplegada: job-tracker-jobtracker:latest = sha256:6ed8d23ebf224c057d43d932f09d41e283eae7ffef1a048f69b1f2d36e0daddb.
+Referencia: ofertas_pre_linkedindesc_20261030.db (volumen y C:\Users\sofia\Respaldos\job-tracker-referencias\), sha256 b7ed580bb89c23ee4fd69df528a1536495f618ade87663d652bd58932757b355, integrity_check ok. Salida al detener: 0. Huellas antes y después: RESULTADO OK.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-linkedin-desc job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** las ofertas nuevas de LinkedIn vuelven a llegar sin descripción (a «Sin texto»), y el asistente de IA vuelve al modelo anterior. No se pierden ofertas ni estados.
+Reversión probada en copia (volumen temporal, 8767): healthy, GET / 200, huellas idénticas a la referencia y LinkedIn sin `fetch_description`.
+
+## Descripción de las 14 postuladas de LinkedIn (30-10-2026)
+
+Commit 33653be: `rellenar_linkedin.py` (una vez) trajo la descripción de las 14 ofertas de LinkedIn postuladas que estaban en «Sin texto» y la guardó solo en `raw.description`, sin reclasificar: categoría, estado, fase y fechas no cambian. Las 283 descartadas no se tocaron.
+Imagen sin cambios: job-tracker:pre-rellenar-linkedin = job-tracker-jobtracker:latest = sha256:6ed8d23ebf224c057d43d932f09d41e283eae7ffef1a048f69b1f2d36e0daddb (el script se montó solo para esa corrida).
+Referencia: ofertas_pre_rellenar_linkedin_20261030.db (volumen y C:\Users\sofia\Respaldos\job-tracker-referencias\), sha256 b7ed580bb89c23ee4fd69df528a1536495f618ade87663d652bd58932757b355, integrity_check ok. Salida al detener: 0.
+Resultado: hechas 14, fallidas 0. Huellas: solo `ofertas` distinta (89545e93… → b091d8ea4c9ab02e8786d74a34129079598db9e76d38d4b6c0f0db82f61fbecc), esperado; el resto idéntico (v7, 44 postuladas, 6 POR VERIFICAR). Comparación fila a fila: solo cambia `raw.description` en esas 14.
+
+Para volver atrás (restaura la base con la API de backup de SQLite, sin red):
+
+```
+docker compose stop jobtracker
+docker run --rm --network none -v job-tracker_jt_datos:/datos job-tracker-jobtracker:latest python -c "import sqlite3; s=sqlite3.connect('file:/datos/ofertas_pre_rellenar_linkedin_20261030.db?mode=ro', uri=True); d=sqlite3.connect('/datos/ofertas.db'); s.backup(d); print(d.execute('PRAGMA integrity_check').fetchone()[0])"
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** las 14 postuladas vuelven a quedar sin texto, y cualquier cambio hecho en la base después del 30-10-2026 (estados, notas, búsquedas nuevas). Hacerlo solo si no hubo cambios desde entonces.
+Reversión probada en copia (volumen temporal, 8767): healthy, GET / 200, huellas idénticas a la referencia.
+
+## Textos de «Sin texto» (30-10-2026)
+
+Commit 7042206: la página y TUTORIAL.md ya no dicen que LinkedIn nunca trae descripción (ahora: «a veces pasa con LinkedIn, Glassdoor o Jooble»). Solo textos; base sin cambios, sin reclasificar.
+Imagen anterior: job-tracker:pre-textos-sintexto (sha256:6ed8d23ebf224c057d43d932f09d41e283eae7ffef1a048f69b1f2d36e0daddb). Imagen desplegada: job-tracker-jobtracker:latest = sha256:6d225a2500ce12ec49a064bda0decc682baec8d0a9b1f6634ce4d1039d9e976d.
+Referencia: ofertas_pre_textos_sintexto_20261030.db (volumen y C:\Users\sofia\Respaldos\job-tracker-referencias\), sha256 6b498bdd64ec816f857325a8a0237ada8c8246b858b505777d3b4d21bc6c923c, integrity_check ok. Salida al detener: 0. Huellas antes y después: RESULTADO OK.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-textos-sintexto job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** vuelven los textos que dicen que LinkedIn llega sin descripción. No se pierden ofertas ni estados.
+Reversión probada en copia (volumen temporal, 8767): healthy, GET / 200, texto anterior de vuelta y huellas idénticas a la referencia.
+
+## Remotos a la derecha de Ofertas y una sola búsqueda en el historial (02-11-2026)
+
+Commit `e9ef00f`: se quita la pestaña «Explorar remotos» (los remotos van en la columna derecha de Ofertas) y
+«Buscar empleos» guarda la normal y la de remotos con el mismo `corridas.grupo`, para que el historial las muestre como una.
+Imagen anterior: `job-tracker:pre-unificar-20261102` (`sha256:cb958d1f0615203f3492dac2cef0806ec2f37b8538aca666fd07a6e51ac501aa`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`.
+Referencia: `ofertas_pre_unificar_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\` y `C:\Users\sofia\Respaldos\job-tracker\`), sha256 `1799e7f7b27cd4ded09d85d365afbccb603632a6d772fa1020ef515cbeb86b88`, integrity_check ok. Salida al detener: 0.
+Huellas: versión 7, ofertas 7624, historial 485, postuladas 46, POR VERIFICAR 6 sin cambio. `corridas` cambia solo porque tiene la columna nueva `grupo` (las 99 filas anteriores quedan sin grupo; el contenido de las demás columnas es idéntico).
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-unificar-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** vuelve la pestaña «Explorar remotos» y el historial vuelve a mostrar la normal y la de remotos como dos búsquedas. La columna `grupo` queda en la base (la versión anterior la ignora). No se pierden ofertas, estados ni búsquedas nuevas hechas después del despliegue solo si se vuelve desde una base de antes; hacerlo solo si no hubo cambios desde el 02-11-2026.
+Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200, `/api/ofertas` con las 99 corridas y `integrity_check` ok. Volumen temporal borrado.
+
+## Avisos y errores por fuente en cada búsqueda (02-11-2026)
+
+Commit `6a83fab`: al elegir una búsqueda del historial, el panel de fuentes muestra también sus avisos (429, bloqueos, detalles).
+Sin cambios de esquema. Imagen anterior: `job-tracker:pre-avisos-historial-20261102` (`sha256:70ff4f4e6aed1d5dd9f10c852062fd42f4bcc97f28eac33d7420bb08239b1876`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`.
+Referencia: `ofertas_pre_avisos_historial_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\` y `C:\Users\sofia\Respaldos\job-tracker\`), sha256 `21192B62C912A42B241A065CDA81C58EC636F8B90774277E9333E551C9723E45`, integrity_check ok. Salida al detener: 0.
+Huellas: RESULTADO OK, ninguna tabla cambió.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-avisos-historial-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** no se ven los avisos de las búsquedas anteriores en el panel del historial (la última búsqueda sí los sigue mostrando). No se pierden ofertas, estados ni búsquedas.
+Reversión probada en copia (volumen temporal, puerto 8767): healthy, GET / 200. Volumen temporal borrado.
+
+## Aviso de robots.txt solo en portales de empleo (02-11-2026)
+
+Commit `2eaa620` (rama `feat/unificar-ofertas`, con push). Commit de código `a49ceb9`: `rellenar_aviso.desde_url` no revisa
+`robots.txt` solo si el enlace es de un portal de `rellenar_aviso.PORTALES_TRABAJO` (decisión de Sofia). Los demás sitios
+siguen revisándose. Sin cambios de esquema ni reclasificación. 911 pruebas en verde antes del despliegue.
+Imagen anterior: `job-tracker:pre-rellenar-robots-20261102` (`sha256:e99910a9473a205c2b65cb9924aa1b2901ac88da4710384bc18f8ade7cc3006a`).
+Imagen desplegada: `job-tracker-jobtracker:latest` = `sha256:d040818e4403cfc928d44a8386c23939656b14ceccbab66cc45aeb8531d69d97`.
+Referencia: `ofertas_pre_rellenar_robots_20261102.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\`), sha256 `41aa85f9471ac98cf7088c5fffd854160671b51b5cf803ab4c55c06be2c1879c`, integrity_check ok (en el volumen el mismo sha256). Salida al detener: 0.
+Huellas: RESULTADO OK, ninguna tabla cambió (v7, 7793 ofertas, 46 postuladas, 6 POR VERIFICAR). Comprobaciones HTTP: `/`, `/api/estado`, `/api/ofertas`, `/api/respaldo` 200; origen ajeno 403; `/api/aviso` con URL inválida 400.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre-rellenar-robots-20261102 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** vuelve a revisar `robots.txt` en todos los enlaces de `/api/aviso`, incluidos los portales de empleo. No se pierden ofertas ni estados.
+Reversión probada en copia (volumen temporal `jt_reversion_robots`, puerto 8767): la imagen anterior quedó healthy; `/`, `/api/estado`, `/api/ofertas` y `/api/respaldo` respondieron 200; huellas RESULTADO OK. Contenedor y volumen temporales borrados.

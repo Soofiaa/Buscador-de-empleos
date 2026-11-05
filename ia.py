@@ -1,0 +1,135 @@
+"""Asistente de IA gratuito usando Groq API."""
+import hashlib
+import json
+import os
+import threading
+import time
+
+import requests
+
+GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
+# Modelo disponible devuelto por la API en esta cuenta
+MODELO = "qwen/qwen3.8-27b"
+
+def obtener_api_key():
+    return os.environ.get("GROQ_API_KEY") or os.environ.get("JT_GROQ_API_KEY")
+
+MIN_TEXTO_AVISO = 150          # menos que esto no es una descripción de empleo completa
+MAX_TEXTO_AVISO = 10_000
+CACHE_SEGUNDOS = 15 * 60       # el mismo texto dentro de este plazo no vuelve a consumir Groq
+CACHE_MAX = 50
+_cache = {}                    # clave (sha256 del texto normalizado) -> (vence, resultado)
+_cache_lock = threading.Lock()  # ThreadingHTTPServer atiende pedidos en hilos distintos
+
+
+def _clave_texto(texto: str) -> str:
+    # los espacios y saltos de línea no cambian el aviso: dos pegados iguales salvo espacios son el mismo
+    return hashlib.sha256(" ".join(texto.split()).encode("utf-8")).hexdigest()
+
+
+def extraer_aviso(texto: str) -> dict:
+    """Saca cargo, empresa, ubicación, modalidad y sueldo de un texto pegado por el usuario. No visita ningún sitio.
+    Un resultado correcto se guarda CACHE_SEGUNDOS: un reenvío del mismo texto no llama a Groq otra vez.
+    Los errores no se guardan (así se puede reintentar)."""
+    clave, ahora = _clave_texto(texto), time.monotonic()
+    with _cache_lock:
+        for k in [k for k, (vence, _) in _cache.items() if vence <= ahora]:
+            del _cache[k]
+        if clave in _cache:
+            return dict(_cache[clave][1])
+    resultado = _extraer_aviso_api(texto)
+    if "error" not in resultado:
+        with _cache_lock:
+            if len(_cache) >= CACHE_MAX:             # fuera el más viejo
+                del _cache[min(_cache, key=lambda k: _cache[k][0])]
+            _cache[clave] = (ahora + CACHE_SEGUNDOS, dict(resultado))
+    return resultado
+
+
+def _extraer_aviso_api(texto: str) -> dict:
+    api_key = obtener_api_key()
+    if not api_key:
+        return {"error": "No hay API Key de Groq configurada en las variables de entorno."}
+    prompt = ("Del siguiente aviso de empleo, extrae los datos. Devuelve JSON con las claves: titulo, empresa, ubicacion, "
+              "modalidad (Remoto, Híbrido, Presencial o vacío), sueldo (texto tal como aparece o vacío). "
+              "Si un dato no aparece, usa cadena vacía. No inventes datos.\n\n" + texto[:8000])
+    payload = {
+        "model": MODELO,
+        "messages": [
+            {"role": "system", "content": "Respondes exclusivamente en JSON válido."},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0,
+        "max_tokens": 300
+    }
+    try:
+        resp = requests.post(GROQ_API_URL, headers={"Authorization": f"Bearer {api_key}"}, json=payload, timeout=20)
+        if resp.status_code != 200:
+            return {"error": f"Error de API Groq ({resp.status_code})"}
+        datos = json.loads(resp.json()["choices"][0]["message"]["content"])
+    except Exception as ex:
+        return {"error": f"Error al conectar con IA: {type(ex).__name__}"}
+    campos = {k: str(datos.get(k) or "").strip()[:200] for k in ("titulo", "empresa", "ubicacion", "modalidad", "sueldo")}
+    if campos["modalidad"] not in ("Remoto", "Híbrido", "Presencial"):
+        campos["modalidad"] = ""
+    return campos
+
+
+def analizar_oferta(titulo: str, empresa: str, descripcion: str) -> dict:
+    api_key = obtener_api_key()
+    if not api_key:
+        return {
+            "error": "No hay API Key de Groq configurada en las variables de entorno."
+        }
+    
+    if not descripcion or len(descripcion.strip()) < 20:
+        return {
+            "resumen": "La oferta no tiene descripción suficiente para analizar con IA (puedes pegarla usando el botón de descripción si está disponible).",
+            "compatibilidad": "N/A",
+            "puntos_fuertes": [],
+            "alertas": []
+        }
+
+    prompt = f"""Analiza esta oferta laboral para el perfil de Sofía (perfil junior en TI / analista funcional / datos / Python / soporte en Chile).
+Condiciones ideales de Sofía (si no se cumplen, agrégalo como alerta y reduce la compatibilidad):
+1. Experiencia: Máximo 1 año de experiencia requerida. Si la oferta exige más de 1 año, agrégalo a "alertas" y reduce la compatibilidad.
+2. Ubicación/Modalidad: Debe ser en Santiago de Chile, RM, o ser Remoto. Si es presencial o híbrido en otra región, agrégalo a "alertas".
+
+Título: {titulo}
+Empresa: {empresa}
+Descripción:
+{descripcion[:4000]}
+
+Devuelve un JSON estricto con las siguientes claves:
+- "compatibilidad": número del 0 al 100 indicando qué tan buen match es.
+- "resumen": resumen de 2 líneas de lo que pide el puesto.
+- "puntos_fuertes": lista de hasta 3 razones o tecnologías por las cuales aplica.
+- "alertas": lista de posibles banderas rojas, requisitos exigentes, o discrepancias con las condiciones ideales de Sofía (ej. pide más de 1 año de experiencia o es fuera de Santiago y no remoto).
+"""
+
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": MODELO,
+        "messages": [
+            {"role": "system", "content": "Eres un asistente experto en búsqueda de empleo en tecnología. Respondes exclusivamente en JSON válido."},
+            {"role": "user", "content": prompt}
+        ],
+        "response_format": {"type": "json_object"},
+        "temperature": 0.2,
+        "max_tokens": 600
+    }
+
+    try:
+        resp = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=15)
+        if resp.status_code != 200:
+            return {"error": f"Error de API Groq ({resp.status_code}): {resp.text}"}
+        
+        data = resp.json()
+        content = data["choices"][0]["message"]["content"]
+        return json.loads(content)
+    except Exception as ex:
+        return {"error": f"Error al conectar con IA: {type(ex).__name__}: {ex}"}

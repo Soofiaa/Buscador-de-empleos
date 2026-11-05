@@ -486,6 +486,56 @@ def test_jobspy_pausa_por_fuente_y_se_detiene_ante_429(con, monkeypatch):
     assert buscar._pausa_jobspy("indeed") == config.PAUSA_ENTRE_BUSQUEDAS
 
 
+def test_portales_corren_en_paralelo_con_jobspy(con, monkeypatch):
+    """Los portales y JobSpy se solapan en el tiempo: cada uno espera al otro dentro de su bucle."""
+    import threading
+    import pandas as pd
+    ids_hilos = {}
+    evento_portal, evento_jobspy = threading.Event(), threading.Event()
+    def scrape_jobs(**kw):
+        ids_hilos["jobspy"] = threading.get_ident()
+        evento_jobspy.set()
+        assert evento_portal.wait(5), "el portal no arrancó mientras JobSpy corría"   # solo cabe si van a la vez
+        return pd.DataFrame()
+    def falso(con, sitio, st, avisos, *a, **k):
+        ids_hilos["portal"] = threading.get_ident()
+        assert evento_jobspy.wait(5)
+        evento_portal.set()
+        return 0
+    monkeypatch.setitem(sys.modules, "jobspy", type(sys)("jobspy"))
+    sys.modules["jobspy"].scrape_jobs = scrape_jobs
+    monkeypatch.setattr(config, "SITIOS", ["indeed", "bne"])
+    monkeypatch.setattr(config, "TERMINOS_SECUNDARIOS", ["qa"])
+    monkeypatch.setattr(config, "UBICACIONES", ["Santiago, Chile"])
+    monkeypatch.setattr(config, "INCLUIR_REMOTO", False)
+    monkeypatch.setattr(config, "PAUSA_ENTRE_BUSQUEDAS", 0)
+    monkeypatch.setattr(buscar, "_buscar_portal", falso)
+    monkeypatch.setattr(buscar, "_say", lambda m: None)
+    buscar.buscar_ofertas(con)
+    assert ids_hilos["portal"] != ids_hilos["jobspy"]                  # el portal corrió en otro hilo
+
+
+def test_avisos_y_salida_del_portal_llegan_a_la_pagina(con, monkeypatch):
+    """El hilo de portales hereda la salida de la búsqueda: sus líneas no se pierden."""
+    mensajes = []
+    def falso(con, sitio, st, avisos, *a, **k):
+        buscar._say(f"  [{sitio}] desde el hilo del portal")
+        avisos.append("aviso desde el portal")
+        return 0
+    monkeypatch.setitem(sys.modules, "jobspy", type(sys)("jobspy"))
+    sys.modules["jobspy"].scrape_jobs = None
+    monkeypatch.setattr(config, "SITIOS", ["bne"])
+    monkeypatch.setattr(buscar, "_buscar_portal", falso)
+    buscar.salida_del_hilo.fn = mensajes.append          # la salida de la búsqueda (la pone el servidor)
+    try:
+        buscar.buscar_ofertas(con)
+    finally:
+        del buscar.salida_del_hilo.fn
+    assert any("desde el hilo del portal" in m for m in mensajes)
+    detalle = json.loads(con.execute("SELECT detalle FROM corridas").fetchone()[0])
+    assert "aviso desde el portal" in detalle["avisos"]
+
+
 def test_un_portal_que_falla_no_corta_la_corrida(con, monkeypatch):
     monkeypatch.setitem(sys.modules, "jobspy", type(sys)("jobspy"))    # sin consultas JobSpy: solo portales
     sys.modules["jobspy"].scrape_jobs = None
