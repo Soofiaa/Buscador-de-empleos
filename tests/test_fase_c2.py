@@ -16,15 +16,15 @@ def test_cada_combinacion_cae_en_exactamente_una_columna_o_fuera_del_tablero():
     r = correr_js(COMBOS + """
       return COMBOS.map(o => [o.estado, o.fase, columnaDe(o),
         COLUMNAS_TABLERO.filter(c => c.id === columnaDe(o)).length]);""")
-    esperado = {"revisada": "P", "postulada": "C"}
+    esperado = {"revisada": "P", "postulada": "C", "rechazada": "R"}
     for estado, fase, col, veces in r:
-        if estado in ("nueva", "descartada", "rechazada"):
-            assert col is None and veces == 0, (estado, fase)        # descartada y rechazada salen del tablero
+        if estado in ("nueva", "descartada"):
+            assert col is None and veces == 0, (estado, fase)        # nueva y descartada salen del tablero
         elif estado == "entrevista":
             assert col == ("O" if fase in ("final", "oferta") else "E") and veces == 1, (estado, fase)
         else:
             assert col == esperado[estado] and veces == 1, (estado, fase)
-    assert correr_js("return COLUMNAS_TABLERO.map(c => c.id);") == ["P", "C", "E", "O"]
+    assert correr_js("return COLUMNAS_TABLERO.map(c => c.id);") == ["P", "C", "E", "O", "R"]
 
 
 # (estado, fase de la tarjeta, destino) -> {estado, fase} enviado
@@ -72,7 +72,7 @@ def test_soltar_en_la_misma_columna_no_envia_nada():
 
 def test_la_fase_nunca_baja_desde_el_tablero():
     r = correr_js(COMBOS + """
-      return COMBOS.filter(o => columnaDe(o)).flatMap(o => ["P", "C", "E", "O"].map(d => [o.fase, movimientoTablero(o, d)]));""")
+      return COMBOS.filter(o => columnaDe(o)).flatMap(o => ["P", "C", "E", "O", "R"].map(d => [o.fase, movimientoTablero(o, d)]));""")
     revisados = 0
     for fase, m in r:
         if m and "estado" in m:
@@ -94,11 +94,11 @@ def test_descartar_cambia_solo_el_estado_y_la_saca_del_tablero():
 def test_mover_a_aplica_las_mismas_reglas():
     r = correr_js(COMBOS + """
       return COMBOS.filter(o => columnaDe(o)).map(o => [o, opcionesMoverA(o),
-        ["P", "C", "E", "O"].map(d => { const m = movimientoTablero(o, d); return !m || !!m.bloqueado; })]);""")
+        ["P", "C", "E", "O", "R"].map(d => { const m = movimientoTablero(o, d); return !m || !!m.bloqueado; })]);""")
     for o, opciones, bloqueadas in r:
-        assert [x["valor"] for x in opciones] == ["P", "C", "E", "O", "descartar"]
-        assert [x["deshabilitada"] for x in opciones[:4]] == bloqueadas, o
-        assert opciones[4] == {"valor": "descartar", "texto": "❌ Descartar", "deshabilitada": False}
+        assert [x["valor"] for x in opciones] == ["P", "C", "E", "O", "R", "descartar"]
+        assert [x["deshabilitada"] for x in opciones[:5]] == bloqueadas, o
+        assert opciones[5] == {"valor": "descartar", "texto": "❌ Descartar", "deshabilitada": False}
     o_fin = next(x for x in r if x[0]["estado"] == "entrevista" and x[0]["fase"] == "final")
     assert o_fin[1][2]["texto"].endswith("(la fase no retrocede)") and o_fin[1][3]["texto"].endswith("(aquí)")
 

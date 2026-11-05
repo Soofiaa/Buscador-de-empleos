@@ -363,8 +363,8 @@
   .btn-vista { background:none; border:0; border-radius:7px; padding:6px 11px; font-size:.82rem; font-weight:600; cursor:pointer; color:var(--suave); transition:all .15s ease; }
   .btn-vista[aria-pressed="true"] { background:var(--panel); color:var(--tinta); box-shadow:0 1px 3px rgba(0,0,0,.08); }
 
-  .kanban-board { display:grid; grid-template-columns:repeat(4, minmax(260px, 1fr)); gap:14px; overflow-x:auto; padding-bottom:16px; align-items:start; }
-  @media (max-width:1150px) { .kanban-board { grid-template-columns:repeat(4, 280px); } }
+  .kanban-board { display:grid; grid-template-columns:repeat(5, minmax(260px, 1fr)); gap:14px; overflow-x:auto; padding-bottom:16px; align-items:start; }
+  @media (max-width:1150px) { .kanban-board { grid-template-columns:repeat(5, 280px); } }
   .kanban-board .tarjeta { margin-bottom:0; padding:14px 12px; border-radius:14px; box-shadow:0 1px 4px rgba(0,0,0,.05); display:flex; flex-direction:column; gap:8px; cursor:grab; transition:transform .15s ease, opacity .15s ease, box-shadow .15s ease; user-select:none; }
   .kanban-board .tarjeta:active { cursor:grabbing; }
   .kanban-board .tarjeta.arrastrando { opacity:.35; transform:scale(.97); border:2px dashed var(--accion); box-shadow:none; }
@@ -721,7 +721,7 @@ function listaDe(datos, pestana, sel) {
   if (!datos) return [];
   const base = pestana === "ofertas" ? datos.principal.filter(o => !CERRADOS.has(o.estado))
     : pestana === "sin_descripcion" || pestana === "explorar" ? (datos[pestana] || []).filter(o => !CERRADOS.has(o.estado))
-    : pestana === "seguimiento" ? gestionadas(datos).filter(o => o.estado === "revisada" || o.estado === "postulada" || o.estado === "entrevista")
+    : pestana === "seguimiento" ? gestionadas(datos).filter(o => o.estado === "revisada" || o.estado === "postulada" || o.estado === "entrevista" || o.estado === "rechazada")
     : pestana === "descartadas_usuario" ? gestionadas(datos).filter(o => o.estado === "descartada" || o.estado === "rechazada")
     : (datos[pestana] || []);
   return filtrarSeleccion(base, pestana, sel, datos.corridas);
@@ -886,13 +886,15 @@ function textoTotalOfertas(n) {                  // pie de la columna izquierda
 // ---------- tablero (C2): cada oferta de Seguimiento cae en exactamente una columna; nueva y descartada no están en él
 const COLUMNAS_TABLERO = [
   { id: "P", nombre: "📌 Por postular" }, { id: "C", nombre: "✉️ CV enviado" },
-  { id: "E", nombre: "🎯 Entrevistas" }, { id: "O", nombre: "🏆 Oferta / Cierre" }];
+  { id: "E", nombre: "🎯 Entrevistas" }, { id: "O", nombre: "🏆 Oferta / Cierre" },
+  { id: "R", nombre: "🚫 No seleccionada" }];
 const FASES_CIERRE = new Set(["final", "oferta"]);
-function columnaDe(o) {                          // "P" | "C" | "E" | "O", o null si no va en el tablero
+function columnaDe(o) {                          // "P" | "C" | "E" | "O" | "R", o null si no va en el tablero
   if (o.estado === "revisada") return "P";
   if (o.estado === "postulada") return "C";
   if (o.estado === "entrevista") return FASES_CIERRE.has(o.fase || "") ? "O" : "E";
-  return null;   // nueva, rechazada y descartada quedan fuera del tablero
+  if (o.estado === "rechazada") return "R";
+  return null;   // nueva y descartada quedan fuera del tablero
 }
 const nombreColumna = id => (COLUMNAS_TABLERO.find(c => c.id === id) || {}).nombre || id;
 const nombreFase = id => ((FASES_PIPELINE.find(f => f.id === id) || {}).nombre || "").replace(/^\d+\.\s*/, "");
@@ -913,6 +915,7 @@ function movimientoTablero(o, destino) {
     return { estado: "entrevista", fase: f === "" || f === "postulacion" ? "rrhh" : f };
   }
   if (destino === "O") return { estado: "entrevista", fase: FASES_CIERRE.has(f) ? f : "final" };
+  if (destino === "R") return { estado: "rechazada", fase: f };
   throw new Error("columna no válida: " + destino);
 }
 function opcionesMoverA(o) {                     // las del selector "Mover a…": la actual y las bloqueadas no se eligen
