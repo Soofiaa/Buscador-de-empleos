@@ -360,8 +360,8 @@ texto, ~100 no correspondían y ~70 por años de experiencia.
 (y `Disallow: /jobs-guest/` para cada buscador con nombre). Conectar `linkedin.py` lo bloquearía `robots.py`, y
 `fetch_description=True` en JobSpy serían ~2000 solicitudes por corrida a `/jobs-guest/` (una por oferta: 23 términos
 × 3 lugares × hasta 30) en vez de 69. **Nota para decidir:** JobSpy ya pide hoy ese endpoint prohibido para el
-listado (`jobspy/linkedin/__init__.py:75`); al ir dentro de la librería nunca pasó por `robots.py`. Queda abierto si
-LinkedIn se mantiene así o pasa a «Buscar a mano» como Computrabajo y Empleos Públicos.
+listado (`jobspy/linkedin/__init__.py:75`); al ir dentro de la librería nunca pasó por `robots.py`. **Resuelto el 30-10-2026:** Sofia decidió mantener
+LinkedIn como está (descripción con JobSpy pese a robots.txt), no pasarlo a «Buscar a mano».
 
 **Qué no sirvió** (medido, no supuesto): el título no suple al texto. Ninguna señal paga (`full stack` sin «junior»
 corta 9 malas y pierde 8 buenas; `consultor` 5 y 3; `especialista` 1 y 3) y exigir «junior/jr» en el título cortaría
