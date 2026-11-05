@@ -91,7 +91,11 @@ def analizar_oferta(titulo: str, empresa: str, descripcion: str) -> dict:
             "alertas": []
         }
 
-    prompt = f"""Analiza esta oferta laboral para un perfil junior/mid en TI / analista funcional / datos / Python / soporte en Chile.
+    prompt = f"""Analiza esta oferta laboral para el perfil de Sofía (perfil junior en TI / analista funcional / datos / Python / soporte en Chile).
+Condiciones ideales de Sofía (si no se cumplen, agrégalo como alerta y reduce la compatibilidad):
+1. Experiencia: Máximo 1 año de experiencia requerida. Si la oferta exige más de 1 año, agrégalo a "alertas" y reduce la compatibilidad.
+2. Ubicación/Modalidad: Debe ser en Santiago de Chile, RM, o ser Remoto. Si es presencial o híbrido en otra región, agrégalo a "alertas".
+
 Título: {titulo}
 Empresa: {empresa}
 Descripción:
@@ -101,7 +105,7 @@ Devuelve un JSON estricto con las siguientes claves:
 - "compatibilidad": número del 0 al 100 indicando qué tan buen match es.
 - "resumen": resumen de 2 líneas de lo que pide el puesto.
 - "puntos_fuertes": lista de hasta 3 razones o tecnologías por las cuales aplica.
-- "alertas": lista de posibles banderas rojas o requisitos exigentes (si las hay).
+- "alertas": lista de posibles banderas rojas, requisitos exigentes, o discrepancias con las condiciones ideales de Sofía (ej. pide más de 1 año de experiencia o es fuera de Santiago y no remoto).
 """
 
     headers = {

@@ -654,7 +654,7 @@
 <script>
 "use strict";
 // <puras> — sin DOM ni estado global; tests/test_historial.py las ejecuta con Node
-const CERRADOS = new Set(["postulada", "entrevista", "descartada"]);
+const CERRADOS = new Set(["postulada", "entrevista", "rechazada", "descartada"]);
 const DIAS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 const mayus = s => s.charAt(0).toUpperCase() + s.slice(1);
@@ -722,7 +722,7 @@ function listaDe(datos, pestana, sel) {
   const base = pestana === "ofertas" ? datos.principal.filter(o => !CERRADOS.has(o.estado))
     : pestana === "sin_descripcion" || pestana === "explorar" ? (datos[pestana] || []).filter(o => !CERRADOS.has(o.estado))
     : pestana === "seguimiento" ? gestionadas(datos).filter(o => o.estado === "revisada" || o.estado === "postulada" || o.estado === "entrevista")
-    : pestana === "descartadas_usuario" ? gestionadas(datos).filter(o => o.estado === "descartada")
+    : pestana === "descartadas_usuario" ? gestionadas(datos).filter(o => o.estado === "descartada" || o.estado === "rechazada")
     : (datos[pestana] || []);
   return filtrarSeleccion(base, pestana, sel, datos.corridas);
 }
@@ -892,7 +892,7 @@ function columnaDe(o) {                          // "P" | "C" | "E" | "O", o nul
   if (o.estado === "revisada") return "P";
   if (o.estado === "postulada") return "C";
   if (o.estado === "entrevista") return FASES_CIERRE.has(o.fase || "") ? "O" : "E";
-  return null;
+  return null;   // nueva, rechazada y descartada quedan fuera del tablero
 }
 const nombreColumna = id => (COLUMNAS_TABLERO.find(c => c.id === id) || {}).nombre || id;
 const nombreFase = id => ((FASES_PIPELINE.find(f => f.id === id) || {}).nombre || "").replace(/^\d+\.\s*/, "");
@@ -1058,8 +1058,8 @@ function apartadoDeHash(hash) {
 const NOMBRE_FUENTE_RESPALDO = { manual: "✍️ Manual" };
 const nombreFuente = f => (S.nombresFuentes || {})[f] || NOMBRE_FUENTE_RESPALDO[f] || f || "sin fuente";
 
-const ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "descartada"];
-const ETIQUETAS_ESTADO = { nueva: "🌱 Nueva", revisada: "🔍 Revisada", postulada: "✉️ Postulada", entrevista: "🎯 En Entrevista", descartada: "❌ Descartada" };
+const ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "rechazada", "descartada"];
+const ETIQUETAS_ESTADO = { nueva: "🌱 Nueva", revisada: "🔍 Revisada", postulada: "✉️ Postulada", entrevista: "🎯 En Entrevista", rechazada: "🚫 No seleccionada", descartada: "❌ Descartada" };
 const PESTANAS = [
   ["ofertas", "Ofertas"], ["fuera_perfil", "Fuera de perfil"],
   ["sospechosas", "Sospechosas"], ["descartadas_usuario", "Descartadas"], ["descartadas", "Descartadas por filtros"]

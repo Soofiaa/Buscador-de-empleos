@@ -61,8 +61,8 @@ PORTALES = {"bne": bne, "trabajando": trabajando, "chiletrabajos": chiletrabajos
 # APIs que no buscan por texto: una sola solicitud por corrida, sin ubicación (ver getonboard.py, himalayas.py, jobicy.py)
 APIS_REMOTAS = {"getonboard": getonboard, "himalayas": himalayas, "jobicy": jobicy, "remotefirstjobs": remotefirstjobs,
                 "jooble": jooble, "weworkremotely": weworkremotely, "arbeitnow": arbeitnow}
-ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "descartada"]
-ESTADOS_CERRADOS = {"postulada", "entrevista", "descartada"}
+ESTADOS = ["nueva", "revisada", "postulada", "entrevista", "rechazada", "descartada"]
+ESTADOS_CERRADOS = {"postulada", "entrevista", "rechazada", "descartada"}
 LIMITE_DESCARTADAS = 300   # la página muestra las descartadas más recientes (con su motivo)
 CAMPOS_CLASIF = ["categoria", "razon", "tipo", "prioridad", "modalidad",
                  "contrato", "sueldo", "experiencia", "motivo"]
@@ -1405,7 +1405,7 @@ def crear_oferta_manual(con, datos) -> dict:
                                         (otra if isinstance(otra, str) else otra[0],)).fetchone()
         if existente is not None:
             # una descartada no es un duplicado: se revive con lo que trae el formulario (y queda en el historial)
-            if existente["estado"] == "descartada" and estado != "descartada":
+            if existente["estado"] in ("descartada", "rechazada") and estado not in ("descartada", "rechazada"):
                 return _revivir_descartada(con, existente, seguimiento, d)
             resumen = _resumen_oferta(existente)
             if existente["url"] == fila["url"]:       # misma URL: no hay forma de guardar dos filas
