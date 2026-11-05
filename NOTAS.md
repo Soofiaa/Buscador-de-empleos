@@ -7,7 +7,11 @@ manda lo más reciente y corrige la nota.
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
 ### Producción y base
-- **Vigente: autocompletado de LinkedIn por HTML de invitado (04-11-2026)**, commit `bf88ece` (rama `feat/unificar-ofertas`, con push).
+- **Vigente: verificación de condiciones de empleo con IA y estado «No seleccionada» (04-11-2026)**, commit `9667f39`
+  (fusionado en `main` con el PR #6). Desplegado según confirmó Sofia el 05-11-2026. Sin registrar en esta nota: sha256 de
+  la imagen, etiqueta de la imagen anterior, referencia de la base y huellas ANTES/DESPUÉS. Completar desde el registro del
+  despliegue (skill `/desplegar`) o `REVERSION_FASE_A.md`.
+- Anterior: autocompletado de LinkedIn por HTML de invitado (04-11-2026), commit `bf88ece` (rama `feat/unificar-ofertas`, con push).
   Imagen `job-tracker-jobtracker:latest` = `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0`, healthy en `127.0.0.1:8765`. Imagen anterior para volver atrás: `job-tracker:pre_autocompletado_linkedin_20261104` (`sha256:32804954f45c6002208c8b1fe4cb697f7e33d5f64fe45010d1dd02e44cfb8361`).
   Referencia: `ofertas_pre_autocompletado_linkedin_20261104.db` en `C:\Users\sofia\Respaldos\job-tracker-referencias\`, sha256 `6D905D90340FB11CBC90DC2392010F601F293874F51905A3884E9A4E46A459EA`, integrity_check ok. Huellas ANTES y DESPUÉS: RESULTADO OK. Salida al detener: 0. Sin cambios de esquema.
   Pendiente: LinkedIn e Indeed siguen rechazando la lectura automática en algunos casos; el pegado de texto es la vía segura.
