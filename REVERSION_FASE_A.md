@@ -1,5 +1,43 @@
 # Reversión de mejoras de sesión (NOTAS, avisos, ruta base)
 
+## Despliegue del 05-11-2026 (commit `9667f39`, con docs en `c2b14bc`): condiciones de empleo en `ia.py` y estado «No seleccionada»
+
+Cambia: el prompt de la IA verifica experiencia (máx. 1 año) y ubicación (Santiago/RM o remoto) y avisa en `alertas`;
+la página agrega el estado «No seleccionada». No cambia el esquema (v7) ni la base.
+
+| Pieza | Valor |
+|---|---|
+| Imagen desplegada | `job-tracker-jobtracker:latest`, `sha256:e6f203ebaa66cf7e423ed59c125c8ab9f00babdc36df8c004137c15c94782fc8` |
+| Imagen anterior | `job-tracker:pre-condiciones-empleo-20261105`, `sha256:4d94baf33fa637963d3fbfa6b594327e5d54a6e3f01c75c92e1853e6a1401aa0` |
+| Base de referencia | `ofertas_pre_condiciones_empleo_20261105.db`, en el volumen y en `C:\Users\sofia\Respaldos\job-tracker-referencias\` |
+| SHA-256 de la referencia | `4857672B85C3F126A58C52BA1FE1A2992D586CA00019767EE4BB6DB55DD5D912`; `integrity_check=ok` |
+| Línea base | SQLite v7; 8915 ofertas; 50 postuladas y 6 POR VERIFICAR |
+| Salida al detener | `0` |
+
+Procedimiento para volver atrás (la base no cambió; no se restaura):
+
+```powershell
+docker compose stop jobtracker
+docker tag job-tracker:pre-condiciones-empleo-20261105 job-tracker-jobtracker:latest
+docker compose up -d --no-build
+docker inspect jobtracker --format "{{.State.Health.Status}}"
+```
+
+Se pierde: la verificación de condiciones de empleo en la IA y el estado «No seleccionada».
+
+Prueba de reversión: la imagen anterior levantada sobre una copia de la base en el volumen temporal
+`jt_reversion_prueba_20261105` (sin red): healthy; integrity ok, 8915 ofertas, 50 postuladas. Volumen y contenedor
+borrados después.
+
+Huellas antes y después: RESULTADO OK (sin tablas cambiadas; repetidas después de las comprobaciones HTTP: OK).
+
+Comprobaciones HTTP: `/`, `/api/estado`, `/api/ofertas`, `/api/respaldo` 200; Host y Origin ajenos 403; POST sin origen 400;
+campo no permitido 400; cuerpo grande 413. `error_auto` vacío.
+
+Nota: no hubo candidata en 8766 (la aprobación de Sofia fue para desplegar directo).
+
+---
+
 ## Despliegue del 04-11-2026 (commit `bf88ece`, rama `feat/unificar-ofertas`): autocompletado de LinkedIn
 
 Cambia solo: el autocompletado de avisos de LinkedIn lee el HTML de invitado (`jobs-guest/jobs/api/jobPosting/<id>`)
