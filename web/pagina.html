@@ -1146,44 +1146,28 @@ function pintarEstadoDb(e) {
 const PUESTOS_MAX = 80;
 function pintarPuestos(lista) {
   const panel = $("puestos-panel");
-  const borrador = [...lista];
-  const campo = h("input", { type: "text", maxlength: "60", placeholder: "Agregar puesto", "aria-label": "Nuevo puesto", autocomplete: "off" });
+  const area = h("textarea", { 
+    class: "input-nota", 
+    style: "min-height:200px; font-family:monospace; font-size:.85rem;",
+    placeholder: "Escribe un puesto por línea.\nEjemplo:\ndesarrollador\nanalista funcional"
+  }, lista.join("\n"));
   const errores = h("div", { class: "sub", role: "alert", style: "color:var(--rojo); font-size:.78rem; margin-top:4px;" });
-  const listaUl = h("ul", { style: "list-style:none; padding:0; margin:6px 0; max-height:220px; overflow:auto;" });
-  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "font-size:.8rem; padding:7px 8px; justify-content:center;" }, "💾 Guardar puestos");
-  const pintarItems = () => listaUl.replaceChildren(...borrador.map((p, i) =>
-    h("li", { style: "display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; font-size:.85rem;" },
-      h("span", {}, p),
-      h("button", { type: "button", class: "btn-manual-header", "aria-label": "Quitar " + p, style: "padding:0 6px;",
-        onclick: () => { borrador.splice(i, 1); pintarItems(); errores.textContent = ""; } }, "✕"))));
-  // misma regla que puestos.py: 2 a 60 caracteres, solo letras, números, espacios, guiones y barras, sin repetidos
-  const agregar = () => {
-    const p = campo.value.replace(/\s+/g, " ").trim();
-    if (!p) return;
-    if (borrador.length >= PUESTOS_MAX) { errores.textContent = `Como máximo ${PUESTOS_MAX} puestos.`; return; }
-    if (p.length < 2 || p.length > 60) { errores.textContent = `«${p}»: debe tener entre 2 y 60 caracteres.`; return; }
-    if (!/^[\p{L}\p{N}][\p{L}\p{N} \-/]*$/u.test(p)) { errores.textContent = `«${p}»: solo letras, números, espacios, guiones o barras.`; return; }
-    const clave = p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    if (borrador.some(x => x.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase() === clave)) {
-      errores.textContent = `«${p}»: ya está en la lista.`; return;
-    }
-    borrador.push(p); campo.value = ""; errores.textContent = ""; pintarItems(); campo.focus();
-  };
-  campo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); agregar(); } });
+  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "margin-top:10px; justify-content:center;" }, "💾 Guardar puestos");
+  
   guardar.onclick = async () => {
+    const lineas = area.value.split("\n").map(l => l.trim()).filter(l => l.length > 0);
     errores.textContent = "";
     guardar.disabled = true;
-    const r = await api("/api/ajustes/puestos", { lista: borrador });
+    const r = await api("/api/ajustes/puestos", { lista: lineas });
     guardar.disabled = false;
     if (!r.ok) { errores.textContent = mensajeError(r.status, r.json); return; }
     mostrarAviso("Puestos guardados: se usan en la próxima búsqueda");
     pintarPuestos(r.json.lista);
   };
-  pintarItems();
+
   panel.replaceChildren(
-    h("p", { class: "nota" }, "Lo que busca Indeed. Los cambios se usan en la próxima búsqueda."),
-    h("div", { style: "display:flex; gap:6px;" }, campo, h("button", { type: "button", class: "boton sec", onclick: agregar }, "Agregar")),
-    errores, listaUl, guardar);
+    h("p", { class: "nota" }, "Escribe un puesto por línea. Los cambios se usan en la próxima búsqueda."),
+    area, errores, guardar);
 }
 async function cargarPuestos() {
   const r = await api("/api/ajustes/puestos");
@@ -1220,44 +1204,32 @@ function pintarFuentes() {
 const UBICACIONES_MAX = 10;
 function pintarUbicaciones(datos) {
   const panel = $("ubicaciones-panel");
-  const borrador = { lista: [...(datos.lista || [])], remoto: !!datos.remoto };
-  const campo = h("input", { type: "text", maxlength: "60", placeholder: "Ej: Santiago, Chile", "aria-label": "Nueva ubicación", autocomplete: "off" });
+  const area = h("textarea", { 
+    class: "input-nota", 
+    style: "min-height:150px; font-family:monospace; font-size:.85rem;",
+    placeholder: "Escribe una ubicación por línea.\nEjemplo:\nSantiago, Chile\nViña del Mar, Chile"
+  }, (datos.lista || []).join("\n"));
   const errores = h("div", { class: "sub", role: "alert", style: "color:var(--rojo); font-size:.78rem; margin-top:4px;" });
-  const listaUl = h("ul", { style: "list-style:none; padding:0; margin:6px 0; max-height:150px; overflow:auto;" });
   const checkRemoto = h("label", { style: "display:flex; align-items:center; gap:6px; margin-top:8px; font-size:.9rem;" },
-    h("input", { type: "checkbox", checked: borrador.remoto, onchange: (e) => { borrador.remoto = e.target.checked; } }),
+    h("input", { type: "checkbox", checked: !!datos.remoto }),
     "Incluir ofertas remoto");
-  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "font-size:.8rem; padding:7px 8px; justify-content:center; margin-top:8px;" }, "💾 Guardar ubicaciones");
-  const pintarItems = () => listaUl.replaceChildren(...borrador.lista.map((u, i) =>
-    h("li", { style: "display:flex; align-items:center; justify-content:space-between; gap:6px; padding:3px 0; font-size:.85rem;" },
-      h("span", {}, u),
-      h("button", { type: "button", class: "btn-manual-header", "aria-label": "Quitar " + u, style: "padding:0 6px;",
-        onclick: () => { borrador.lista.splice(i, 1); pintarItems(); errores.textContent = ""; } }, "✕"))));
-  const agregar = () => {
-    const u = campo.value.replace(/\s+/g, " ").trim();
-    if (!u) return;
-    if (borrador.lista.length >= UBICACIONES_MAX) { errores.textContent = `Como máximo ${UBICACIONES_MAX} ubicaciones.`; return; }
-    if (u.length > 60 || !u.split("").every(c => c.charCodeAt(0) <= 127 || /[\p{L}]/u.test(c))) {
-      errores.textContent = `«${u}»: máximo 60 caracteres.`; return;
-    }
-    if (borrador.lista.includes(u)) { errores.textContent = `«${u}»: ya está en la lista.`; return; }
-    borrador.lista.push(u); campo.value = ""; errores.textContent = ""; pintarItems(); campo.focus();
-  };
-  campo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); agregar(); } });
+  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "margin-top:10px; justify-content:center;" }, "💾 Guardar ubicaciones");
+  
   guardar.onclick = async () => {
+    const lineas = area.value.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const remoto = checkRemoto.querySelector('input').checked;
     errores.textContent = "";
     guardar.disabled = true;
-    const r = await api("/api/ajustes/ubicaciones", { lista: borrador.lista, remoto: borrador.remoto });
+    const r = await api("/api/ajustes/ubicaciones", { lista: lineas, remoto: remoto });
     guardar.disabled = false;
     if (!r.ok) { errores.textContent = mensajeError(r.status, r.json); return; }
     mostrarAviso("Ubicaciones guardadas: se usan en la próxima búsqueda");
     pintarUbicaciones(r.json);
   };
-  pintarItems();
+
   panel.replaceChildren(
     h("p", { class: "nota" }, "Dónde buscar. Los cambios se usan en la próxima búsqueda."),
-    h("div", { style: "display:flex; gap:6px;" }, campo, h("button", { type: "button", class: "boton sec", onclick: agregar }, "Agregar")),
-    errores, listaUl, checkRemoto, guardar);
+    area, checkRemoto, errores, guardar);
 }
 async function cargarUbicaciones() {
   const r = await api("/api/ajustes/ubicaciones");
@@ -1280,43 +1252,39 @@ function validarExclusionLocal(clave, p) {
 }
 function pintarExclusiones(datos) {
   const panel = $("exclusiones-panel");
-  const borrador = { empresas: [...datos.empresas], titulo: [...datos.titulo], descripcion: [...datos.descripcion] };
+  const campos = {};
   const errores = h("div", { class: "sub", role: "alert", style: "color:var(--rojo); font-size:.78rem; margin-top:4px;" });
+  
   const bloques = Object.keys(EXCLUSIONES_ETIQUETAS).map(clave => {
     const [titulo, ayuda] = EXCLUSIONES_ETIQUETAS[clave];
-    const campo = h("input", { type: "text", maxlength: "80", placeholder: "Agregar", "aria-label": "Nueva " + titulo.toLowerCase(), autocomplete: "off" });
-    const ul = h("ul", { style: "list-style:none; padding:0; margin:4px 0 8px; max-height:140px; overflow:auto;" });
-    const pintarItems = () => ul.replaceChildren(...borrador[clave].map((p, i) =>
-      h("li", { style: "display:flex; align-items:center; justify-content:space-between; gap:6px; padding:2px 0; font-size:.82rem;" },
-        h("span", { style: "overflow-wrap:anywhere;" }, p),
-        h("button", { type: "button", class: "btn-manual-header", "aria-label": "Quitar " + p, style: "padding:0 6px;",
-          onclick: () => { borrador[clave].splice(i, 1); pintarItems(); errores.textContent = ""; } }, "✕"))));
-    const agregar = () => {
-      const p = campo.value.replace(/\s+/g, " ").trim();
-      if (!p) return;
-      const motivo = validarExclusionLocal(clave, p);
-      if (motivo) { errores.textContent = `«${p}»: ${motivo}.`; return; }
-      if (borrador[clave].some(x => x.toLowerCase() === p.toLowerCase())) { errores.textContent = `«${p}»: ya está en la lista.`; return; }
-      borrador[clave].push(p); campo.value = ""; errores.textContent = ""; pintarItems(); campo.focus();
-    };
-    campo.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); agregar(); } });
-    pintarItems();
+    const area = h("textarea", { 
+      class: "input-nota", 
+      style: "min-height:100px; font-family:monospace; font-size:.82rem; margin-top:4px;",
+      placeholder: `Escribe un patrón por línea.`
+    }, (datos[clave] || []).join("\n"));
+    campos[clave] = area;
     return h("div", { style: "margin-bottom:10px;" },
       h("div", { style: "font-weight:600; font-size:.86rem;" }, titulo),
       h("p", { class: "nota", style: "margin:2px 0 4px;" }, ayuda),
-      h("div", { style: "display:flex; gap:6px;" }, campo, h("button", { type: "button", class: "boton sec", onclick: agregar }, "Agregar")),
-      ul);
+      area);
   });
-  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "font-size:.8rem; padding:7px 8px; justify-content:center;" }, "💾 Guardar exclusiones");
+  
+  const guardar = h("button", { class: "boton sec ancho", type: "button", style: "margin-top:10px; justify-content:center;" }, "💾 Guardar exclusiones");
   guardar.onclick = async () => {
+    const nuevoDatos = {};
+    for (const clave in campos) {
+      nuevoDatos[clave] = campos[clave].value.split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    }
+    
     errores.textContent = "";
     guardar.disabled = true;
-    const r = await api("/api/ajustes/exclusiones", borrador);
+    const r = await api("/api/ajustes/exclusiones", nuevoDatos);
     guardar.disabled = false;
     if (!r.ok) { errores.textContent = mensajeError(r.status, r.json); return; }
     mostrarAviso("Exclusiones guardadas: se aplican a lo que llegue y a la reclasificación");
     pintarExclusiones(r.json);
   };
+  
   panel.replaceChildren(
     h("p", { class: "nota" }, "Lo que nunca aparece. Los cambios se aplican al clasificar."),
     ...bloques, errores, guardar);

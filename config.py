@@ -4,25 +4,21 @@ Los patrones son expresiones regulares sobre texto en minúsculas y SIN tildes.
 """
 
 # ============================================================== Qué buscar
-TERMINOS_A = [  # roles TI: reducido a top 8 que más resultados traen, para bajar Indeed de 195 a ~48 consultas
-    "desarrollador backend",
-    "automatización de procesos", 
-    "QA", "testing",
-    "análisis de requerimientos",
-    "analista funcional",
-    "desarrollador python",
-    "analista de datos junior", "analista de datos jr",
-    "desarrollador full stack junior", "desarrollador full stack jr",
-    "informático junior", "informático jr",
-    "soporte TI", "help desk",
+TERMINOS_A = [
+    "desarrollador",
+    "programador",
+    "analista de sistemas",
+    "QA",
+    "tester",
+    "analista de datos",
 ]
 # Nota: "BPMN UML" (0 resultados en todas las zonas) se reemplazó por "BPMN";
 # los términos con "junior" + varias palabras técnicas no devuelven nada en Indeed.
-TERMINOS_B = [  # roles puente (no TI): recortados a los que trajeron resultados (ver NOTAS, 02-11)
-    "analista de procesos", "mejora continua", "datos maestros",
-    "analista de reportería", "control de gestión", "usuario clave",
-    "analista de calidad", "analista de mejora",
-    "analista de requerimientos junior", "analista de requerimientos jr",
+TERMINOS_B = [
+    "analista",
+    "analista de procesos",
+    "analista funcional",
+    "business analyst",
 ]
 # Fuentes. Indeed busca con todos los términos; Google y Glassdoor con la lista
 # corta (TERMINOS_SECUNDARIOS) para limitar peticiones y riesgo de bloqueo.
@@ -54,12 +50,13 @@ TERMINOS_SECUNDARIOS = [
 
 # Puestos que efectivamente devuelven resultados en LinkedIn, para reducir el tiempo de búsqueda
 TERMINOS_LINKEDIN = [
-    "analista funcional", "QA", "testing", "tester", "analista de sistemas",
-    "desarrollador python", "desarrollador backend", "analista de procesos",
-    "analista de datos junior", "informático junior",
-    "data engineer junior", "analista BI junior",
-    "devops junior",
-    "analista de calidad", "analista de requerimientos junior",
+    "desarrollador",
+    "programador",
+    "analista de sistemas",
+    "QA",
+    "tester",
+    "analista de datos",
+    "analista funcional",
 ]
 # ---- Explorar remotos (botón aparte): roles fuera de tu perfil TI que podrían calzar, SOLO remotos ----
 # Indeed los busca como "<término> remoto" en Chile (Himalayas y Jobicy, con TERMINOS_EXPLORAR_EN). Las fuentes remotas
