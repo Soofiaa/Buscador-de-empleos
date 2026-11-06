@@ -1107,3 +1107,24 @@ docker compose up -d --no-build
 
 **Qué se pierde al volver:** vuelve a revisar `robots.txt` en todos los enlaces de `/api/aviso`, incluidos los portales de empleo. No se pierden ofertas ni estados.
 Reversión probada en copia (volumen temporal `jt_reversion_robots`, puerto 8767): la imagen anterior quedó healthy; `/`, `/api/estado`, `/api/ofertas` y `/api/respaldo` respondieron 200; huellas RESULTADO OK. Contenedor y volumen temporales borrados.
+
+## Términos de búsqueda amplios y edición por líneas en Ajustes (06-11-2026)
+
+Commits `43a4a67` y `e60d42a` (rama `main`, con push). `config.py`: TERMINOS_A, TERMINOS_B y TERMINOS_LINKEDIN más amplios
+(desarrollador, programador, analista...). `web/pagina.html`: Puestos, Ubicaciones y Exclusiones se editan en un cuadro de texto,
+un elemento por línea. Sin cambios de esquema. 898 pruebas en verde antes del despliegue.
+Imagen anterior: `job-tracker:pre_terminos_ui` (`sha256:01ad4e127b7b...`, id corto).
+Imagen desplegada: `job-tracker-jobtracker:latest` = id corto `4deaf812f846`.
+Referencia: `ofertas_pre_terminos_ui_20261106.db` (`C:\Users\sofia\Respaldos\job-tracker-referencias\`), sha256 `882a7bf03b73b89041d1af22519fc75301dc152cd01a13aac04fc15ab0f9e262`, integrity_check ok (en el volumen el mismo sha256). Salida al detener: 0.
+Huellas: RESULTADO OK, ninguna tabla cambió (v7, 9208 ofertas, 50 postuladas, 6 POR VERIFICAR). `/`, `/api/estado`, `/api/ofertas`, `/api/respaldo` 200; Host u Origin ajeno 403.
+
+Para volver atrás:
+
+```
+docker compose stop jobtracker
+docker tag job-tracker:pre_terminos_ui job-tracker-jobtracker:latest
+docker compose up -d --no-build
+```
+
+**Qué se pierde al volver:** los términos amplios de config.py y la edición por líneas en Ajustes. No se pierden ofertas ni estados.
+Reversión NO probada en copia (volumen temporal) en este despliegue.
