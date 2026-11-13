@@ -6,6 +6,7 @@ Aplicación local en Python + SQLite con interfaz web integrada (`web/pagina.htm
 
 - **Portales y APIs chilenas / remotas**: BNE, Trabajando, Chiletrabajos, Chumi, Laborum, Get on Board, Himalayas, Jobicy, Remote First Jobs, We Work Remotely, Arbeitnow.
 - **Motores con JobSpy**: Indeed, Glassdoor, LinkedIn (con consultas intercaladas para evitar límites de tasa/429).
+- **LinkedIn y Chumi son opt-in, activos por defecto**: se consultan pese al `robots.txt` de LinkedIn y a las Condiciones de Uso de Chumi mientras `LINKEDIN_PESE_A_ROBOTS` / `CHUMI_PESE_A_TOS` estén en `True` en `config.py`. Ver `PRODUCT.md`, «Decisiones de riesgo aceptado».
 
 ## Características Principales
 

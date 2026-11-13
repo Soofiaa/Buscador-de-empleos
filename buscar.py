@@ -625,9 +625,9 @@ def consulta(sitio: str, termino: str, lugar: str, resultados: int | None = None
         # sin esto el listado llega SIN descripción y no se puede revisar experiencia ni nivel (ver NOTAS.md, 21-10).
         # En Glassdoor el detalle va por el mismo endpoint /graph del listado y pide uno por cada 25 ofertas.
         kw["fetch_description"] = True
-    elif sitio == "linkedin":
-        # Decisión de Sofia (30-10-2026): se pide el detalle aunque robots.txt diga "Disallow: /". Es una solicitud por
-        # oferta; si falla, la oferta llega sin texto y queda en 'sin_descripcion' como antes.
+    elif sitio == "linkedin" and config.LINKEDIN_PESE_A_ROBOTS:
+        # Se pide el detalle solo si config.LINKEDIN_PESE_A_ROBOTS es True (riesgo aceptado: ver PRODUCT.md).
+        # Es una solicitud por oferta; si falla, la oferta llega sin texto y queda en 'sin_descripcion'.
         kw["fetch_description"] = True
     return kw
 
@@ -858,11 +858,38 @@ def _portales(ruta_db, activos, stats, avisos, tele, ahora, ventanas) -> int:
     return total
 
 
+# Fuentes que se consultan pese a una regla del sitio (PRODUCT.md, «Decisiones de riesgo aceptado»):
+# (fuente, flag de config.py que la mantiene encendida, la regla que se pasa por alto)
+RIESGO_ACEPTADO = (("linkedin", "LINKEDIN_PESE_A_ROBOTS", "robots.txt"),
+                   ("chumi", "CHUMI_PESE_A_TOS", "sus Condiciones de Uso"))
+
+
+def advertencias_fuentes() -> list[dict]:
+    """Estado de las fuentes con riesgo aceptado: [{fuente, flag, activa, texto}]. La página lo muestra siempre
+    (/api/estado): activa = advertencia; apagada = «en pausa por decisión», no «sin resultados»."""
+    salida_ = []
+    for fuente, flag, regla in RIESGO_ACEPTADO:
+        activa, nombre = bool(getattr(config, flag)), config.NOMBRE_FUENTE[fuente]
+        salida_.append({"fuente": fuente, "flag": flag, "activa": activa,
+                        "texto": f"{nombre} activo pese a {regla}" if activa
+                        else f"{nombre} en pausa por decisión ({flag}=False en config.py)"})
+    return salida_
+
+
+def fuentes_activas() -> list[str]:
+    """config.SITIOS menos las fuentes de riesgo aceptado cuyo flag está apagado. No muta config.SITIOS."""
+    apagadas = {a["fuente"] for a in advertencias_fuentes() if not a["activa"]}
+    return [s for s in config.SITIOS if s not in apagadas]
+
+
 def buscar_ofertas(con, fuentes=None) -> int:
     from jobspy import scrape_jobs  # import aquí: los tests no lo necesitan
     _vigilar_429()
     aplicar_exclusiones(con)   # las exclusiones que Sofia guardó, antes de clasificar lo que llegue
-    sitios = list(config.SITIOS) if fuentes is None else [s for s in config.SITIOS if s in fuentes]   # las marcadas
+    activas = fuentes_activas()
+    sitios = activas if fuentes is None else [s for s in activas if s in fuentes]   # las marcadas
+    en_pausa = [a for a in advertencias_fuentes() if not a["activa"] and a["fuente"] in config.SITIOS
+                and (fuentes is None or a["fuente"] in fuentes)]
 
     ubic = leer_ubicaciones(con)
     lugares = list(ubic["lista"]) + ([REMOTO] if ubic["remoto"] else [])
@@ -882,6 +909,9 @@ def buscar_ofertas(con, fuentes=None) -> int:
                 else telemetria.contador("consulta", lugares)) for s in sitios}
     total = 0
     avisos = []
+    for a in en_pausa:           # fuente omitida por decisión: se dice por qué, no que «no hubo resultados»
+        avisos.append(f"{config.NOMBRE_FUENTE[a['fuente']]} no se consultó: desactivado en config.py ({a['flag']}=False)")
+        print(f"[buscar] {avisos[-1]}", file=sys.stderr, flush=True)      # también en docker logs
     ahora = ahora_chile()
     inicio = ahora.strftime("%Y-%m-%d %H:%M")
     ventanas = ventanas_efectivas(con, ahora)
@@ -895,7 +925,7 @@ def buscar_ofertas(con, fuentes=None) -> int:
         avisos.append(f"{config.NOMBRE_FUENTE[s]} no se consultó: falta la clave ({s.upper()}_KEY) en el entorno.")
     plan = [p for p in plan if p[0] not in sin_clave]
     # los portales van en su propio hilo mientras JobSpy y las APIs siguen aquí (ver _portales)
-    activos = [s for s in sitios if s in PORTALES]
+    activos = [s for s in sitios if s in PORTALES]      # sitios ya viene sin las fuentes apagadas (fuentes_activas)
     hilo_portales, res_portales = _en_hilo(
         _portales, con.execute("PRAGMA database_list").fetchone()[2], activos, stats, avisos, tele, ahora, ventanas
     ) if activos else (None, {})

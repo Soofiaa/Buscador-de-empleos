@@ -10,6 +10,8 @@ import re
 
 from bs4 import BeautifulSoup
 
+import chumi
+import config
 import filtros
 import ia
 import linkedin
@@ -21,8 +23,15 @@ MINIMO_TEXTO = 300          # menos que esto: la página llegó vacía y el cont
 TIEMPO_NAVEGADOR_MS = 20_000
 MODALIDADES = ("Remoto", "Híbrido", "Presencial")
 # Portales de empleo donde el aviso se pide sin revisar robots.txt (decisión de Sofia). Cualquier otro sitio sí se revisa.
+# LinkedIn no pasa por esta lista: va por desde_linkedin, que depende de config.LINKEDIN_PESE_A_ROBOTS. "chumi.cl" no
+# es el dominio de Chumi (es chumi-it.com, ver DOMINIO_CHUMI): sus avisos se leen revisando robots.txt, que los permite.
 PORTALES_TRABAJO = ("indeed.com", "linkedin.com", "glassdoor.com", "bne.cl", "trabajando.cl", "chiletrabajos.cl",
                     "chumi.cl", "laborum.cl", "getonboard.com")
+DOMINIO_CHUMI = urlsplit(chumi.BASE).hostname
+
+
+def _es_de(host: str, dominio: str) -> bool:
+    return host == dominio or host.endswith("." + dominio)
 
 
 def _limpio(s) -> str:
@@ -189,12 +198,17 @@ def _modalidad_linkedin(criterios: dict, titulo: str, descripcion: str, ubicacio
 
 
 def desde_linkedin(url: str, cliente, robots) -> dict:
-    """El aviso público de LinkedIn no trae JSON-LD. El HTML de invitado sí trae cargo, empresa y texto."""
+    """El aviso público de LinkedIn no trae JSON-LD. El HTML de invitado sí trae cargo, empresa y texto.
+    Se pide pese al robots.txt de LinkedIn solo con config.LINKEDIN_PESE_A_ROBOTS encendido (riesgo aceptado, PRODUCT.md)."""
+    if not config.LINKEDIN_PESE_A_ROBOTS:
+        raise ErrorFuente("la lectura automática de LinkedIn está desactivada en config.py "
+                          "(LINKEDIN_PESE_A_ROBOTS=False); abre el aviso, copia su texto y pégalo a mano")
     jid = linkedin._job_id(url)
     if not jid:
         raise ErrorFuente("ese enlace de LinkedIn no tiene el número del aviso; complétalo a mano")
     try:
-        html = pedir("%s/jobs-guest/jobs/api/jobPosting/%s" % (linkedin.BASE, jid), cliente, robots, ignorar_robots=True)
+        html = pedir("%s/jobs-guest/jobs/api/jobPosting/%s" % (linkedin.BASE, jid), cliente, robots,
+                     ignorar_robots=config.LINKEDIN_PESE_A_ROBOTS)
         datos = linkedin.aviso_formulario(html)
         criterios = datos.pop("criterios")
         datos["modalidad"] = _modalidad_linkedin(criterios, datos["titulo"], datos["descripcion"], datos["ubicacion"])
@@ -209,14 +223,18 @@ def desde_linkedin(url: str, cliente, robots) -> dict:
 def desde_url(url: str, cliente, robots) -> dict:
     """Saca los datos del aviso, en este orden:
       1. LinkedIn: HTML público de invitado (la página del aviso no trae JSON-LD).
-      2. HTML normal (pedir sin revisar robots.txt, con pausa). Si trae JSON-LD, listo.
+      2. HTML normal (pedir sin revisar robots.txt en portales de empleo, con pausa). Si trae JSON-LD, listo.
       3. Si la página llega vacía (JavaScript), un navegador la renderiza; después se prueba el JSON-LD otra vez.
       4. Lo que quede de texto visible se le pasa a la IA.
+    Las fuentes de riesgo aceptado (PRODUCT.md) se revisan ANTES de visitar nada: con su flag apagado, ErrorFuente.
     Propaga Bloqueo, NoEncontrada y ErrorFuente."""
-    host = urlsplit(url).hostname or ""
-    if host == "linkedin.com" or host.endswith(".linkedin.com"):
-        return desde_linkedin(url, cliente, robots)
-    en_portal = any(host == d or host.endswith("." + d) for d in PORTALES_TRABAJO)
+    host = urlsplit(url).hostname or ""          # hostname ya viene en minúsculas y sin puerto
+    if _es_de(host, "linkedin.com"):
+        return desde_linkedin(url, cliente, robots)      # rechaza si LINKEDIN_PESE_A_ROBOTS está apagado
+    if _es_de(host, DOMINIO_CHUMI) and not config.CHUMI_PESE_A_TOS:
+        raise ErrorFuente("la lectura automática de Chumi está desactivada en config.py "
+                          "(CHUMI_PESE_A_TOS=False); abre el aviso, copia su texto y pégalo a mano")
+    en_portal = any(_es_de(host, d) for d in PORTALES_TRABAJO)
     html = pedir(url, cliente, robots, ignorar_robots=en_portal)     # robots.txt solo se salta en portales de empleo
     try:
         return parsear_aviso(html)

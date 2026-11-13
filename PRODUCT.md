@@ -19,7 +19,7 @@ Lo que una hoja de cálculo o un tablero genérico no hace: buscar en muchas fue
 Se usa en una página local (`127.0.0.1:8765`) dentro de Docker. La búsqueda corre por lotes; la revisión y el seguimiento se hacen en la página, a ratos, mientras se trabaja en otras cosas.
 
 ## Capabilities and Constraints
-- Fuentes activas: BNE, Trabajando, Chiletrabajos, Chumi, Laborum, Get on Board, Himalayas, Jobicy, Remote First Jobs, We Work Remotely, Arbeitnow, Indeed, Glassdoor y LinkedIn (estos tres vía JobSpy).
+- Fuentes activas: BNE, Trabajando, Chiletrabajos, Laborum, Get on Board, Himalayas, Jobicy, Remote First Jobs, We Work Remotely, Arbeitnow, Indeed y Glassdoor. LinkedIn y Chumi son opt-in, activo por defecto: se consultan solo mientras su flag de `config.py` esté en `True` (ver «Decisiones de riesgo aceptado»). Indeed, Glassdoor y LinkedIn van vía JobSpy.
 - Computrabajo y Empleos Públicos rechazan el acceso: solo enlaces «Buscar a mano».
 - Ofertas sin texto completo (LinkedIn, Glassdoor) van a la pestaña «Sin texto» para revisión manual.
 - Base de datos SQLite; cambios de esquema y de datos reales requieren aprobación explícita.
@@ -27,16 +27,29 @@ Se usa en una página local (`127.0.0.1:8765`) dentro de Docker. La búsqueda co
 - Terminología: «postulada», «entrevista», «POR VERIFICAR», «soporte TI», «Sin texto».
 - Sin decisión aún: si la página se comparte con otras personas, qué se muestra y cómo se controla el acceso.
 
+## Decisiones de riesgo aceptado
+Dos fuentes se consultan pese a una regla del propio sitio. Decisión explícita de Sofia (2026-11-12): **ambas quedan ACTIVAS**. Cada una tiene un flag en `config.py`, en `True` por defecto; mientras esté encendido, la página lo advierte.
+
+| Fuente | Regla que se pasa por alto | Riesgo aceptado | Flag en `config.py` |
+|---|---|---|---|
+| LinkedIn | Su `robots.txt` dice `Disallow: /` | Bloqueo de la IP o de la cuenta de LinkedIn | `LINKEDIN_PESE_A_ROBOTS` |
+| Chumi | Sus Condiciones de Uso (punto 2) | Infracción de esas condiciones | `CHUMI_PESE_A_TOS` |
+
+- Responsable: Sofia. Fecha de la decisión: 2026-11-12.
+- Cómo apagar una fuente: poner su flag en `False`. Deja de consultarse en la búsqueda y de leerse desde un enlace pegado; la página la muestra «en pausa por decisión» y cada búsqueda lo anota en sus avisos.
+- Alternativa segura: abrir el aviso en el navegador y pegar su texto a mano (pestaña «Sin texto»).
+- Revisión sugerida: 2027-02-12 (3 meses), o antes si LinkedIn o Chumi cambian sus condiciones o su `robots.txt`.
+
 ## Brand Commitments
 Ninguno definido. El nombre del proyecto es `job-tracker`.
 
 ## Evidence on Hand
-Pruebas automatizadas (878) y el tutorial en `TUTORIAL.md`. No hay métricas de uso ni testimonios; no inventar ninguno.
+Pruebas automatizadas y el tutorial en `TUTORIAL.md`. No hay métricas de uso ni testimonios; no inventar ninguno.
 
 ## Product Principles
 - Nunca postular, escribir cartas ni contactar empresas en nombre de Sofia: la app solo registra lo que ella hace.
 - No leer correos ni ingresar credenciales de terceros.
-- Respetar `robots.txt` y las condiciones de cada fuente; no usar User-Agent de navegador para sortear bloqueos.
+- Respetar `robots.txt` y las condiciones de cada fuente; no usar User-Agent de navegador para sortear bloqueos. Excepciones explícitas: las de «Decisiones de riesgo aceptado».
 - Cambios en producción solo con aprobación explícita y procedimiento documentado.
 
 ## Accessibility & Inclusion

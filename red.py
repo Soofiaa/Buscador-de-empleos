@@ -104,7 +104,9 @@ class ClienteHTTP:
 def pedir(url: str, cliente, robots, datos: Optional[dict] = None, ignorar_robots: bool = False) -> str:
     """Descarga una URL respetando robots.txt por defecto. 
     Si ignorar_robots es True, se salta la validación del parser (útil para /api/aviso)."""
-    
+    if cliente is None:        # un error legible en vez de un AttributeError a mitad de camino
+        raise ErrorFuente("no hay cliente HTTP para leer la página; no se visitó nada")
+
     # Solo validamos robots si NO se explícitamente que lo ignoremos
     if not ignorar_robots:
         rechazo = getattr(robots, "bloqueo", lambda _u: "")(url)

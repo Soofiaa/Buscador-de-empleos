@@ -28,6 +28,17 @@ TERMINOS_B = [
 # Para reintentarlo, agrégalo a la lista: SITIOS = ["indeed", "glassdoor", "google"]
 SITIOS = ["indeed", "glassdoor", "getonboard", "himalayas", "jobicy", "remotefirstjobs", "bne", "trabajando", "chiletrabajos", "chumi", "laborum", "linkedin", "weworkremotely", "arbeitnow"]   # jooble: fuera (2-11, no trae ofertas útiles; el módulo queda por si se reactiva)
 
+# ---- Fuentes con riesgo aceptado (auditoría C1 + A1). Decisión explícita de Sofia, 2026-11-12: AMBAS QUEDAN ACTIVAS.
+# Para apagar una fuente, pon su flag en False: deja de consultarse en la búsqueda y de leerse desde un enlace pegado, y
+# la página la muestra «en pausa por decisión». Alternativa segura: abrir el aviso y pegar su texto a mano (pestaña
+# «Sin texto»). Detalle y fecha de revisión en PRODUCT.md, «Decisiones de riesgo aceptado».
+# LinkedIn: su robots.txt dice "Disallow: /" y aun así se consulta (listado y detalle de cada oferta).
+# Riesgo que acepta quien lo deja en True: bloqueo de la IP o de la cuenta de LinkedIn. Responsable: Sofia (2026-11-12).
+LINKEDIN_PESE_A_ROBOTS = True
+# Chumi: su robots.txt lo permite, pero sus Condiciones de Uso (punto 2) no.
+# Riesgo que acepta quien lo deja en True: infracción de esas condiciones. Responsable: Sofia (2026-11-12).
+CHUMI_PESE_A_TOS = True
+
 # himalayas / jobicy: APIs públicas de empleo remoto (ver himalayas.py y jobicy.py). Traen el listado reciente en una
 # sola solicitud por corrida; el clasificador filtra por rol. Atribución: enlace a la fuente y postulación a la oferta.
 # chumi y laborum: verificados contra el sitio real el 2026-10-20 (ver chumi.py y laborum.py; Laborum usa Playwright).
@@ -78,8 +89,8 @@ NOMBRE_FUENTE = {"indeed": "Indeed", "google": "Google", "glassdoor": "Glassdoor
                  "weworkremotely": "We Work Remotely", "arbeitnow": "Arbeitnow"}
 # Fuentes cuyo listado puede llegar SIN descripción. Sin texto no hay nada que revisar: ni experiencia, ni nivel, ni
 # contrato, ni sueldo, ni señales. Esas ofertas van a "sin_descripcion" (las revisa Sofia abriendo el aviso), nunca se
-# muestran como si hubieran pasado los filtros. LinkedIn nunca trae descripción: su robots.txt dice "Disallow: /" a
-# todo el mundo, así que la app no pide el detalle (ver NOTAS.md, 21-10). Glassdoor sí lo trae desde el 21-10
+# muestran como si hubieran pasado los filtros. LinkedIn: el detalle se pide solo con
+# LINKEDIN_PESE_A_ROBOTS en True (arriba); si no llega, la oferta queda aquí. Glassdoor sí lo trae desde el 21-10
 # (fetch_description), pero sigue aquí por las ofertas guardadas antes de ese cambio.
 FUENTES_SIN_TEXTO = ("linkedin", "glassdoor", "jooble")
 AVISO_SIN_TEXTO = "⚠ la descripción del aviso no llegó a la app: experiencia y nivel sin verificar"

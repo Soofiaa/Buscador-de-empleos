@@ -6,6 +6,21 @@ manda lo más reciente y corrige la nota.
 
 ## Estado actual (se actualiza en cada despliegue; leer al empezar cada sesión)
 
+### Dos PCs: la base real está en el OTRO PC (10-11-2026)
+- **Base real (con las ofertas y postulaciones):** en el otro PC (usuario `sofia`). Toda la línea base de
+  «Producción y base» de abajo es de ESA base. Sus últimos respaldos son del 09-11-2026; en este PC solo están sus
+  huellas, no los `.db`: `ofertas_auto_20261109-181551.db` sha256 `44b89c9033162efd9b93728ddd76e39eb137bd823577f93e99756a92403ae75f`
+  y `ofertas_manual_20261109-184358.db` sha256 `47857587b4408280b0a8ed3d83954730b790729ae5d254ff67d15c88fc26366c`.
+- **Este PC (usuario `Usuario`): instalación aparte con base NUEVA y vacía** (aprobado por Sofia el 10-11-2026).
+  Contenedor `jobtracker` healthy en `127.0.0.1:8765`, `restart: unless-stopped`, volumen `job-tracker_jt_datos`.
+  Imagen `job-tracker-jobtracker:latest` = `sha256:555485f86ec56fac18555c878ba4f2336437190e02ff9852fa5894ff9649c860`
+  (commit `e33cdcb`, rama `main`). Base v7, integrity_check ok, sha256 `665ab666d842f4d1363790fb697f20d4bffd6c001122f4117a7029aab2c1a56e`;
+  ofertas 0, corridas 0, historial_estados 0, alertas 0, pruebas_fuentes 0, terminos_no_disponibles 0, ajustes 4, postuladas 0.
+  Respaldos en `C:/Users/Usuario/Respaldos/job-tracker` (vía `JT_RESPALDOS_HOST` en `.env`; el compose no cambió).
+- No mezclar las dos bases. Para traer la real a este PC: respaldo con la API de backup en el otro PC, copiar el
+  `.db` y su `.sha256`, verificar sha256 + integrity_check aquí y restaurarlo con aprobación explícita.
+- Pendiente: `CLAUDE.md` y la skill `/desplegar` siguen con las rutas `C:/Users/sofia/...` del otro PC.
+
 ### Producción y base
 - **Vigente: condiciones de empleo en la IA y estado «No seleccionada» (05-11-2026)**, commit `9667f39` (docs en `c2b14bc`;
   rama `feat/unificar-ofertas`, sin push). Imagen `job-tracker-jobtracker:latest` = `sha256:e6f203ebaa66cf7e423ed59c125c8ab9f00babdc36df8c004137c15c94782fc8`,
@@ -70,7 +85,14 @@ manda lo más reciente y corrige la nota.
   copia (puerto 8767), según el skill `/desplegar`.
 
 ### Sin desplegar
-- Ninguno.
+- **LinkedIn y Chumi como opt-in explícito, activos por defecto (12-11-2026, auditoría C1 + A1):** commit local en
+  `main`, sin push ni despliegue. Flags nuevos en `config.py`, ambos en `True`: `LINKEDIN_PESE_A_ROBOTS` (LinkedIn se
+  consulta pese a su robots.txt) y `CHUMI_PESE_A_TOS` (Chumi, pese a sus Condiciones de Uso). Con ambos en `True` la
+  búsqueda es la de siempre. Para desactivar una fuente: poner su flag en `False`; deja de consultarse (búsqueda y
+  enlace pegado), la página la muestra «en pausa por decisión» y cada búsqueda lo deja en sus avisos. Mientras estén
+  encendidos, la página advierte «LinkedIn activo pese a robots.txt» / «Chumi activo pese a sus Condiciones de Uso».
+  Decisión de Sofia (12-11-2026): ambas quedan activas; detalle en `PRODUCT.md`, «Decisiones de riesgo aceptado».
+  Sin cambios de esquema ni de datos.
 - **A vigilar:** si LinkedIn empieza a responder 429 seguido (una petición extra por oferta), bajar
   `RESULTADOS_POR_BUSQUEDA` o `TERMINOS_LINKEDIN`.
 

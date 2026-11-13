@@ -1,8 +1,9 @@
 """Chumi (chumi-it.com): portal de empleo TI, HTML estático, sin sesión ni navegador.
 
 Verificado el 2026-10-20 (fixtures tests/fixtures/chumi_trabajos.html y chumi_detalle.html):
-  - robots.txt permite todo salvo áreas privadas (/adm/, /my/, /api/, /login...). Aprobado por Sofia el 20-10 pese al
-    punto 2 de sus Condiciones de Uso (ver NOTAS.md).
+  - robots.txt permite todo salvo áreas privadas (/adm/, /my/, /api/, /login...). Sus Condiciones de Uso (punto 2) NO
+    lo permiten: es un riesgo aceptado, no un permiso. Solo se consulta con config.CHUMI_PESE_A_TOS en True (ver
+    PRODUCT.md, «Decisiones de riesgo aceptado»).
   - El buscador /jobs?q= arma los resultados con JavaScript: no sirve. El listado general /trabajos?page=N sí trae en
     el HTML unas 25 tarjetas por página: <a href="/trabajos/<slug>"> con h2 (título, a veces con un código interno
     "ROS1001 - "), el p siguiente (empresa) y dos span (ubicación, casi siempre "Chile" a secas, y modalidad:

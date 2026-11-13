@@ -170,6 +170,7 @@ class Aplicacion:
                            "en_curso": en_curso}
         est["nombres_fuentes"] = config.NOMBRE_FUENTE
         est["fuentes"] = list(config.SITIOS)            # las plataformas que la página deja elegir por corrida
+        est["advertencias_fuentes"] = buscar.advertencias_fuentes()    # LinkedIn / Chumi: activo pese a robots/ToS, o en pausa
         if en_curso and "incompletos" in est["respaldo"]:
             est["respaldo"]["incompletos"] = None
         return est

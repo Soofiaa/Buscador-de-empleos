@@ -503,6 +503,9 @@
   .interruptor-soporte input { width:16px; height:16px; padding:0; accent-color:var(--accion); }   /* gana a ".filtros input" (va después) */
   .chip.tenia-postulacion { background:var(--aviso-fondo); color:var(--aviso); font-weight:600; }
   .badge-db-status.sin-conexion .dot-online { background:var(--rojo); box-shadow:0 0 6px var(--rojo); }
+  #advertencias-fuentes { margin:0 0 12px; display:flex; flex-direction:column; gap:6px; }
+  .advertencia-fuente { font-size:.8rem; font-weight:600; color:var(--aviso); background:var(--aviso-fondo); border-radius:10px; padding:6px 10px; }
+  .advertencia-fuente.en-pausa { color:var(--suave); background:var(--panel2); }
 </style>
 </head>
 <body>
@@ -514,6 +517,7 @@
     <nav class="menu" id="menu" aria-label="Apartados"></nav>
     <div class="sub" id="ultima">Cargando…</div>
 
+    <div id="advertencias-fuentes" role="note" aria-label="Fuentes con riesgo aceptado" hidden></div>
     <div class="seccion-lateral">
       <button class="boton ancho" id="buscar" type="button">Buscar empleos</button>
       <p class="nota">Búsqueda de empleos. Las plataformas se eligen en Ajustes.</p>
@@ -1330,11 +1334,21 @@ function mostrarProgreso(e, sufijo = "", boton = "buscar", tipo = "buscar") {
   $(boton).disabled = !!e.buscando;
 }
 const algunaEnCurso = e => !!e.buscando;
+// LinkedIn / Chumi: riesgo aceptado por decisión (PRODUCT.md). Encendida = advertencia; apagada = en pausa, no «sin resultados»
+function pintarAdvertenciasFuentes(lista) {
+  const cont = $("advertencias-fuentes");
+  cont.hidden = !(lista && lista.length);
+  cont.replaceChildren(...(lista || []).map(a => h("div", { class: "advertencia-fuente" + (a.activa ? "" : " en-pausa"),
+    title: a.activa ? "Riesgo aceptado por Sofia (2026-11-12). Se apaga con " + a.flag + " = False en config.py." : "" },
+    (a.activa ? "⚠ " : "⏸ ") + a.texto)));
+}
 async function estado() {
   const r = await api("/api/estado");
   if (!r.ok) { pintarEstadoDb(null); return; }
   const e = r.json;
   pintarEstadoDb(e);
+
+  pintarAdvertenciasFuentes(e.advertencias_fuentes);
   S.nombresFuentes = e.nombres_fuentes;
   if (e.fuentes && !S.fuentes.length) { S.fuentes = e.fuentes; pintarFuentes(); }
   pintarRespaldo(e.respaldo);
