@@ -63,3 +63,18 @@ def test_maximo_entradas():
 def test_errores_de_varias_listas_se_informan_juntos():
     _, errores = exclusiones.validar({"empresas": ["ok", ""], "titulo": [r"(roto"], "descripcion": ["x\x01"]})
     assert len(errores) == 3
+
+
+# ---- B1: un patrón que tarda demasiado (cuantificadores anidados) no se guarda; los normales sí (límite de tiempo)
+@pytest.mark.parametrize("patron", [r"(a+)+$", r"(a|aa)+$", r"(a+a+)+b"])
+def test_patron_patologico_se_rechaza_por_tiempo(patron):
+    """Patrones con cuantificadores anidados que tardan exponencial con el texto de prueba: el validador los rechaza."""
+    limpias, errores = exclusiones.validar({"empresas": [], "titulo": [patron], "descripcion": []})
+    assert errores and any("tarda demasiado" in e for e in errores)
+
+
+@pytest.mark.parametrize("patron", [r"practic", r"\bintern\b", r"estudiante en practica", r"memorista|alumno",
+                                    r"senior|lead|jefe", r"(qa|tester)\s?lead"])
+def test_patrones_normales_siguen_pasando(patron):
+    _, errores = exclusiones.validar({"empresas": [], "titulo": [patron], "descripcion": []})
+    assert errores == []

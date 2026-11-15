@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Búsqueda de empleo</title>
-<style>
+<style nonce="__JT_NONCE__">
   /* Tipografías servidas por la propia app (web/fuentes, licencia SIL OFL 1.1): la CSP solo permite font-src 'self' */
   @font-face { font-family:"Plus Jakarta Sans"; src:url("/fuentes/plus-jakarta-sans-latin-wght-normal-5.3.0.woff2") format("woff2");
                font-weight:200 800; font-style:normal; font-display:swap; }
@@ -503,6 +503,11 @@
   .interruptor-soporte input { width:16px; height:16px; padding:0; accent-color:var(--accion); }   /* gana a ".filtros input" (va después) */
   .chip.tenia-postulacion { background:var(--aviso-fondo); color:var(--aviso); font-weight:600; }
   .badge-db-status.sin-conexion .dot-online { background:var(--rojo); box-shadow:0 0 6px var(--rojo); }
+  /* antes eran atributos style="" en el HTML: la CSP con nonce no los admite, así que viven aquí (mismos valores) */
+  .busquedas-manuales { margin-top:8px; font-size:.8rem; }
+  .encabezado-ajustes { margin-bottom:16px; }
+  .estado-respaldo { margin:8px 0 0; }
+  .interruptor-contraste { margin:12px 0 0; }
   #advertencias-fuentes { margin:0 0 12px; display:flex; flex-direction:column; gap:6px; }
   .advertencia-fuente { font-size:.8rem; font-weight:600; color:var(--aviso); background:var(--aviso-fondo); border-radius:10px; padding:6px 10px; }
   .advertencia-fuente.en-pausa { color:var(--suave); background:var(--panel2); }
@@ -523,7 +528,7 @@
       <p class="nota">Búsqueda de empleos. Las plataformas se eligen en Ajustes.</p>
       <div class="progreso" id="progreso" role="status" aria-live="polite"></div>
       <div class="barra" id="barra" role="progressbar" aria-label="Avance de la búsqueda" aria-valuemin="0" hidden><div class="barra-relleno" id="barra-relleno"></div><span class="barra-tiempo" id="barra-tiempo"></span></div>
-      <details class="busquedas-manuales" id="busquedas-manuales" style="margin-top:8px; font-size:.8rem;">
+      <details class="busquedas-manuales" id="busquedas-manuales">
         <summary title="Estos sitios no aceptan búsquedas automáticas: se abren en tu navegador">🔎 Buscar a mano</summary>
       </details>
     </div>
@@ -567,7 +572,7 @@
     </div>
    </section>
    <section class="apartado" id="apartado-ajustes" tabindex="-1" aria-labelledby="titulo-ajustes" hidden>
-    <div class="encabezado-fila" style="margin-bottom:16px;">
+    <div class="encabezado-fila encabezado-ajustes">
       <div><h2 class="titulo-sel" id="titulo-ajustes">Ajustes</h2></div>
       <div class="acciones-encabezado">
         <button class="boton sec btn-ayuda-pantalla" type="button" aria-haspopup="dialog" title="Qué hay en esta pantalla y cómo usarla">❓ Ayuda de esta pantalla</button>
@@ -614,7 +619,7 @@
           <h4>Respaldos</h4>
           <p class="nota">Copia exacta de la base a tu carpeta de respaldos.</p>
           <button class="boton sec" id="btn-respaldo" type="button">💾 Respaldar ahora</button>
-          <div class="sub" id="estado-respaldo" role="status" style="margin:8px 0 0;"></div>
+          <div class="sub estado-respaldo" id="estado-respaldo" role="status"></div>
         </div>
       </div>
     </section>
@@ -638,7 +643,7 @@
               <option value="neutro-oscuro">🌑 Carbón</option>
             </optgroup>
           </select>
-          <label class="interruptor-soporte" style="margin:12px 0 0;">
+          <label class="interruptor-soporte interruptor-contraste">
             <input type="checkbox" id="contraste-aa"> Contraste reforzado
           </label>
           <p class="nota">Colores de texto y acento más marcados, para cumplir contraste WCAG AA.</p>
@@ -654,7 +659,7 @@
 </div>
 <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
-<script>
+<script nonce="__JT_NONCE__">
 "use strict";
 // <puras> — sin DOM ni estado global; tests/test_historial.py las ejecuta con Node
 const CERRADOS = new Set(["postulada", "entrevista", "rechazada", "descartada"]);

@@ -45,14 +45,39 @@ def _limpiar_lista(entrada, etiqueta):
     return limpia, errores
 
 
+# `re` no tiene timeout: un patrón con cuantificadores anidados (p. ej. (a+)+$) puede tardar exponencial en un texto
+# corto. Se evalúa en un proceso hijo con plazo; si no termina, se mata (el proceso se cierra limpiamente).
+PLAZO_PATRON_S = 0.5
+TEXTO_PRUEBA = "a" * 30 + "!"      # el peor caso habitual de los patrones anidados; cualquier patrón normal lo resuelve en µs
+
+
+def _tarda_demasiado(patron: str) -> bool:
+    """True si el patrón no termina en PLAZO_PATRON_S contra TEXTO_PRUEBA. Usa subprocess para poder matar el proceso
+    si se cuelga (un hilo en Python no se puede matar desde fuera)."""
+    import subprocess
+    import sys
+    cmd = [sys.executable, "-c",
+           f"import re; re.search({patron!r}, {TEXTO_PRUEBA!r})"]
+    try:
+        subprocess.run(cmd, timeout=PLAZO_PATRON_S, capture_output=True)
+        return False
+    except subprocess.TimeoutExpired:
+        return True
+
+
 def _validar_patrones(lista, etiqueta):
-    """Cada patrón debe compilar como expresión regular; si no, se informa cuál."""
+    """Cada patrón debe compilar como expresión regular y terminar a tiempo; si no, se informa cuál."""
     errores = []
     for p in lista:
         try:
-            re.compile(normalizar(p))
+            patron = normalizar(p)
+            re.compile(patron)
         except re.error as e:
             errores.append(f"«{p}» no es un patrón válido ({e.msg})")
+            continue
+        if _tarda_demasiado(patron):
+            errores.append(f"«{p}» tarda demasiado en evaluarse (un patrón así puede colgar la clasificación); "
+                           "quítale repeticiones anidadas, p. ej. (a+)+")
     return errores
 
 

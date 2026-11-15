@@ -1,4 +1,4 @@
-"""Fase 2 de la auditoría (A2 SSRF en /api/aviso, A3 token local): pruebas de seguridad sin red real.
+﻿"""Fase 2 de la auditoría (A2 SSRF en /api/aviso, A3 token local): pruebas de seguridad sin red real.
 El DNS se simula con monkeypatch y los servidores de prueba van en 127.0.0.1 solo cuando el test lo pide."""
 import http.client
 import socket
@@ -202,6 +202,7 @@ def test_la_pagina_lleva_el_token_en_el_js_y_no_en_texto_visible(srv):
     html = cuerpo.decode("utf-8")
     assert st == 200 and "__JT_TOKEN__" not in html          # el marcador se sustituye
     assert servidor.JT_TOKEN in html                           # el token va en el JS (cabecera X-JT-Token)
-    visible = html.split("<script>")[0]                        # lo que se ve: antes del script
-    assert servidor.JT_TOKEN not in visible
+    # lo que se ve es el <body>: el token solo puede aparecer en el JS (cabecera X-JT-Token), nunca como texto
+    cuerpo_visible = html.split("<body>", 1)[1].split("<script", 1)[0]
+    assert servidor.JT_TOKEN not in cuerpo_visible
 

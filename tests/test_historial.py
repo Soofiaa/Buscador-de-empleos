@@ -1,4 +1,4 @@
-"""Historial de búsquedas: asignación de corrida_id (Python) y filtro por día/hora de la página (JS real, con Node)."""
+﻿"""Historial de búsquedas: asignación de corrida_id (Python) y filtro por día/hora de la página (JS real, con Node)."""
 import json
 import re
 import shutil
@@ -310,7 +310,7 @@ def test_todos_los_textos_con_contador_concuerdan_en_singular_y_plural():
 
 def test_la_pagina_no_arma_plurales_a_mano():
     """Todo contador pasa por plural()/TXT: no puede quedar un número pegado a una palabra en plural fija."""
-    script = PAGINA.split("<script>")[1]
+    script = PAGINA.split("<script")[1]
     palabras = r"(activas?|relevantes?|ofertas?|encontradas?|nuevas?|errore?s?|antiguas?|días?|búsquedas?|descartadas?|más recientes?)"
     assert not re.search(r'\+\s*"\s' + palabras + r"\b", script)             # n + " ofertas…"
     assert not re.search(r'===\s*1\s*\?\s*"\s?' + palabras + r"\b", script)  # n === 1 ? " oferta" : …

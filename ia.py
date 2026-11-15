@@ -126,7 +126,7 @@ Devuelve un JSON estricto con las siguientes claves:
     try:
         resp = requests.post(GROQ_API_URL, headers=headers, json=payload, timeout=15)
         if resp.status_code != 200:
-            return {"error": f"Error de API Groq ({resp.status_code}): {resp.text}"}
+            return {"error": f"Error de API Groq ({resp.status_code})"}
         
         data = resp.json()
         content = data["choices"][0]["message"]["content"]

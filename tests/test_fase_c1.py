@@ -1,4 +1,4 @@
-"""Fase C1 + historial de estados + ajuste (6): estado y fase atómicos en /api/marcar, historial solo de agregado (tabla
+﻿"""Fase C1 + historial de estados + ajuste (6): estado y fase atómicos en /api/marcar, historial solo de agregado (tabla
 aditiva, la base sigue en v7), una sola función que escribe estado/fase/fecha, fecha editable no futura y en_fase_desde."""
 import ast
 import json
@@ -79,7 +79,7 @@ def post(puerto, ruta, cuerpo):
 def test_base_nueva_trae_los_6_objetos_y_sigue_en_v7(tmp_path):
     con = buscar.conectar(str(tmp_path / "n.db"))
     assert objetos(con) == OBJETOS and len(OBJETOS) == 6
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 7                 # opción 2: aditiva, sin v8
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 8                 # v8 (fase 3): solo corridas.grupo; el historial sigue aditivo
 
 
 def test_un_trigger_o_el_indice_borrado_se_recrea_al_conectar(db):
@@ -520,7 +520,7 @@ def test_pagina_arma_los_pedidos_a_marcar_con_su_origen():
 
 
 def test_pagina_todo_pedido_a_marcar_pasa_por_pedido_marcar_o_pedido_deshacer():
-    script = PAGINA.split("<script>")[1]
+    script = PAGINA.split("<script")[1]
     llamadas = re.findall(r'api\("/api/marcar",\s*([^)]*\))', script)
     assert llamadas and all(c.startswith(("pedidoMarcar(", "pedidoDeshacer(")) for c in llamadas), llamadas
     assert 'api("/api/nota"' in script and "guardarNota" not in script                  # la fase ya no va por /api/nota

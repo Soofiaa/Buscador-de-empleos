@@ -46,7 +46,7 @@ def test_migracion_v6_a_v7_dos_veces_sin_perder_nada(tmp_path):
     antes = foto(ruta)
     for _ in range(2):
         con = buscar.conectar(ruta)
-        assert con.execute("PRAGMA user_version").fetchone()[0] == buscar.VERSION_DB == 7
+        assert con.execute("PRAGMA user_version").fetchone()[0] == buscar.VERSION_DB == 8   # v8: corridas.grupo propio
         con.close()
     assert foto(ruta) == antes                                            # todas las columnas v6 y las corridas, intactas
     con = sqlite3.connect(ruta)
@@ -81,7 +81,7 @@ def test_migracion_desde_v5_llega_a_v7(tmp_path):
     con.close()
     con = buscar.conectar(ruta)
     cols = {r[1] for r in con.execute("PRAGMA table_info(ofertas)")}
-    assert set(buscar.COLUMNAS_SEGUIMIENTO) <= cols and con.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert set(buscar.COLUMNAS_SEGUIMIENTO) <= cols and con.execute("PRAGMA user_version").fetchone()[0] == 8
     assert list(tmp_path.glob("*_antigua_*")) == []
 
 
@@ -89,7 +89,7 @@ def test_base_nueva_nace_en_v7_con_espera_explicita(tmp_path):
     con = buscar.conectar(str(tmp_path / "nueva.db"))
     tablas = {r[0] for r in con.execute("SELECT name FROM sqlite_master WHERE type='table'")}
     assert {"ofertas", "corridas", "ajustes", "alertas", "pruebas_fuentes"} <= tablas
-    assert con.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert con.execute("PRAGMA user_version").fetchone()[0] == 8
     assert con.execute("PRAGMA busy_timeout").fetchone()[0] == 15000
     assert con.execute("PRAGMA journal_mode").fetchone()[0] == "wal"
 

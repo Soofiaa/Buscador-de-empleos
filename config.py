@@ -134,6 +134,12 @@ INCLUIR_REMOTO = True
 REGIONES_VALIDAS = {"RM", "VS"}   # presencial/híbrido solo en estas regiones
 
 RESULTADOS_POR_BUSQUEDA = 30
+# Tope de ofertas que UNA corrida guarda (B2). Medido en las 10 corridas del volumen de este PC (13-11-2026): una corrida
+# normal ENCUENTRA entre 275 y 631 ofertas (y guarda todas; solo 0-13 son «relevantes nuevas»). 300, el punto de partida
+# sugerido, recortaría corridas normales. 1000 queda ~60% sobre la más grande observada: no se nota en el uso diario y
+# frena la avalancha de una ventana ampliada (DIAS_MAXIMOS = 14 tras días sin buscar). Al llegar al tope se deja de
+# guardar, se avisa en la página y en el log, y lo que falta queda para la próxima búsqueda. 0 = sin tope.
+MAX_OFERTAS_POR_CORRIDA = 1000
 # LinkedIn pide el detalle de cada oferta (una petición extra por oferta): con 30 por consulta una corrida tardó 30 min
 # (961 ofertas en 45 consultas, 2-11). Con 10 se mantiene el detalle y baja el tiempo (ver NOTAS.md, 03-11).
 RESULTADOS_LINKEDIN = 10

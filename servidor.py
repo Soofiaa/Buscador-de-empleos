@@ -89,8 +89,14 @@ LIMITES_POR_RUTA = {"/api/nota": 64_000, "/api/oferta/manual": 64_000, "/api/des
                     # 10.000 caracteres x hasta 4 bytes UTF-8 (emojis) + el JSON: 48 KB; por encima, 413 antes de leer
                     "/api/aviso/ia": 48_000}   # 5000 caracteres x 12 bytes si el cliente los escapa como \uXXXX
 MAXIMO_A_DESCARTAR = 1_000_000      # un cuerpo demasiado grande se lee (hasta aquí) y se descarta antes del 413
-CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; font-src 'self'; "
-       "connect-src 'self'; form-action 'none'; base-uri 'none'")
+# CSP (M1): script-src SIN 'unsafe-inline' (solo el script de la página, con nonce por respuesta: MARCADOR_NONCE). Así un
+# script inyectado (p. ej. un innerHTML que se colara) no se ejecuta.
+# EXCEPCIÓN DOCUMENTADA: style-src-attr 'unsafe-inline'. La página pinta ~57 atributos style="..." vía h(). Un nonce no
+# cubre los atributos (solo el <style> de bloque), así que sin esta línea el tablero perdería su estilo. Quitarla es
+# trabajo futuro: migrar esos estilos a clases CSS (ver NOTAS.md). Los estilos inline no ejecutan código.
+CSP_PLANTILLA = ("default-src 'none'; style-src 'nonce-{nonce}'; style-src-attr 'unsafe-inline'; "
+                 "script-src 'nonce-{nonce}'; font-src 'self'; connect-src 'self'; form-action 'none'; base-uri 'none'")
+MARCADOR_NONCE = "__JT_NONCE__"
 # Al apagar (docker stop / compose stop manda SIGTERM; stop_grace_period: 15s en docker-compose.yml): se espera un
 # respaldo en curso y se consolida el -wal, cada cosa con su límite (5 + 3 s, con margen antes del SIGKILL).
 ESPERA_RESPALDO_S = 5
@@ -275,7 +281,8 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
         def log_message(self, *a):
             pass
 
-        def _enviar(self, codigo, cuerpo: bytes, tipo="application/json; charset=utf-8", cache="no-store", extra=None):
+        def _enviar(self, codigo, cuerpo: bytes, tipo="application/json; charset=utf-8", cache="no-store", extra=None,
+                    nonce=None):
             self.send_response(codigo)
             self.send_header("Content-Type", tipo)
             for k, v in (extra or {}).items():
@@ -283,7 +290,9 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
             self.send_header("Content-Length", str(len(cuerpo)))
             self.send_header("Cache-Control", cache)
             self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Security-Policy", CSP)
+            # sin nonce (JSON, tipografías, descargas): nada puede ejecutarse ni aplicar estilos inline
+            csp = CSP_PLANTILLA.format(nonce=nonce) if nonce else "default-src 'none'; font-src 'self'; base-uri 'none'"
+            self.send_header("Content-Security-Policy", csp)
             self.end_headers()
             self.wfile.write(cuerpo)
 
@@ -309,8 +318,9 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                 return self._json(401, {"error": "falta el token de acceso; revisa JT_TOKEN o los logs del contenedor"})
             ruta = urllib.parse.urlsplit(self.path).path
             if ruta == "/":
-                cuerpo = PAGINA.replace(MARCADOR_TOKEN, JT_TOKEN).encode("utf-8")
-                return self._enviar(200, cuerpo, "text/html; charset=utf-8")
+                nonce = secrets.token_urlsafe(16)              # uno por respuesta: no se reutiliza entre cargas
+                cuerpo = (PAGINA.replace(MARCADOR_TOKEN, JT_TOKEN).replace(MARCADOR_NONCE, nonce)).encode("utf-8")
+                return self._enviar(200, cuerpo, "text/html; charset=utf-8", nonce=nonce)
             if ruta.startswith("/fuentes/"):
                 archivo = FUENTES.get(ruta[len("/fuentes/"):])
                 if archivo is None or not archivo.is_file():

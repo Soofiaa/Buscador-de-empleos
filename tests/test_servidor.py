@@ -1,4 +1,4 @@
-"""Servidor local de la página: rutas, seguridad (Host/Origin) y búsqueda en segundo plano."""
+﻿"""Servidor local de la página: rutas, seguridad (Host/Origin) y búsqueda en segundo plano."""
 import http.client
 import json
 import re
@@ -109,12 +109,33 @@ def test_sirve_solo_las_tipografias_de_la_lista(srv):
 
 
 def test_csp_permite_solo_fuentes_propias_y_nada_externo(srv):
+    """La CSP de la página lleva nonce y no tiene 'unsafe-inline' en script-src (M1). Las respuestas sin nonce (JSON,
+    tipografías) no permiten ningún script ni estilo de bloque."""
     _, puerto, _ = srv
-    for ruta in ("/", "/api/estado", "/fuentes/outfit-latin-wght-normal-5.3.0.woff2"):
-        csp = cabeceras(puerto, ruta)[1]["Content-Security-Policy"]
-        directivas = dict(d.strip().split(" ", 1) for d in csp.split(";"))
-        assert directivas == {"default-src": "'none'", "style-src": "'unsafe-inline'", "script-src": "'unsafe-inline'",
-                              "font-src": "'self'", "connect-src": "'self'", "form-action": "'none'", "base-uri": "'none'"}
+    csp = cabeceras(puerto, "/")[1]["Content-Security-Policy"]
+    directivas = dict(d.strip().split(" ", 1) for d in csp.split(";"))
+    nonce = re.search(r"'nonce-([^']+)'", csp).group(1)
+    assert directivas == {"default-src": "'none'", "style-src": f"'nonce-{nonce}'", "style-src-attr": "'unsafe-inline'",
+                          "script-src": f"'nonce-{nonce}'", "font-src": "'self'", "connect-src": "'self'",
+                          "form-action": "'none'", "base-uri": "'none'"}
+    assert "'unsafe-inline'" not in directivas["script-src"]
+    for ruta in ("/api/estado", "/fuentes/outfit-latin-wght-normal-5.3.0.woff2"):
+        csp_otra = cabeceras(puerto, ruta)[1]["Content-Security-Policy"]
+        assert "script-src" not in csp_otra and "nonce" not in csp_otra
+
+
+def test_cada_respuesta_de_la_pagina_lleva_su_propio_nonce(srv):
+    """Dos cargas de / dan nonces distintos, y dentro de UNA respuesta el nonce de la CSP, del <style> y del <script>
+    coinciden. Nonce y cuerpo salen de la misma respuesta (si no, el test compara peras con manzanas)."""
+    _, puerto, _ = srv
+    r1, r2 = cabeceras(puerto, "/"), cabeceras(puerto, "/")
+    n1 = re.search(r"'nonce-([^']+)'", r1[1]["Content-Security-Policy"]).group(1)
+    n2 = re.search(r"'nonce-([^']+)'", r2[1]["Content-Security-Policy"]).group(1)
+    assert n1 != n2 and len(n1) >= 16
+    for resp, nonce in ((r1, n1), (r2, n2)):
+        cuerpo = resp[2].decode("utf-8")
+        assert f'<script nonce="{nonce}">' in cuerpo and f'<style nonce="{nonce}">' in cuerpo
+        assert "__JT_NONCE__" not in cuerpo
 
 
 def test_estado_informa_el_total_de_ofertas(srv):
@@ -133,7 +154,7 @@ def test_la_pagina_viene_de_web_y_el_dockerfile_la_copia():
 
 
 def test_la_pagina_no_tiene_manejadores_en_el_html_ni_botones_de_fases_futuras():
-    html = PAGINA.split("<script>")[0]
+    html = PAGINA.split("<script")[0]
     assert not re.search(r"<[a-z]+[^>]*\son[a-z]+\s*=", html, re.I)          # eventos solo con addEventListener / h()
     cuerpo = PAGINA.split("</style>")[1]           # el CSS original ya trae estilos para las fases siguientes; eso no es UI
     # Fase A trajo el detalle, "Gestionar proceso" y "Deshacer"; la B1, la postulación manual y exportar.
@@ -145,7 +166,7 @@ def test_la_pagina_no_tiene_manejadores_en_el_html_ni_botones_de_fases_futuras()
 
 
 def test_el_detalle_es_un_dialogo_accesible_y_las_notas_son_texto():
-    script = PAGINA.split("<script>")[1]
+    script = PAGINA.split("<script")[1]
     for necesario in ('role: "dialog"', '"aria-modal": "true"', '"aria-labelledby": "detalle-titulo"', 'e.key === "Escape"',
                       'e.key !== "Tab"', "notas.value = o.notas", '"aria-haspopup": "dialog"', "restaurar: { ...cambio.anterior, si_actual: cambio.actual }"):
         assert necesario in script, necesario
@@ -234,13 +255,13 @@ def test_mensaje_de_fin_de_busqueda_en_singular_y_plural(tmp_path, n, texto):
 
 def test_la_pagina_ya_no_tiene_el_interruptor_de_soporte():
     """El soporte TI se muestra siempre en Ofertas: sin check en la página (la regla de backend queda en la base)."""
-    script = PAGINA.split("<script>")[1]
+    script = PAGINA.split("<script")[1]
     assert "🛟 Incluir soporte TI / helpdesk" not in script and "/api/ajustes/soporte" not in script
 
 
 def test_la_pagina_tiene_postulacion_manual_y_exportar_sin_enlace_falso():
-    script = PAGINA.split("<script>")[1]
-    html = PAGINA.split("</style>")[1].split("<script>")[0]
+    script = PAGINA.split("<script")[1]
+    html = PAGINA.split("</style>")[1].split("<script")[0]
     assert 'id="btn-manual"' in html and 'id="btn-exportar-csv"' in html and 'id="btn-exportar-json"' in html
     assert '"/api/oferta/manual"' in script and '"/api/exportar?formato="' in script
     assert '"aria-labelledby": "manual-titulo-dialogo"' in script and "montarDialogo(tarjeta, origen, titulo)" in script
@@ -250,9 +271,9 @@ def test_la_pagina_tiene_postulacion_manual_y_exportar_sin_enlace_falso():
 
 
 def test_la_pagina_tiene_el_boton_de_respaldo_y_el_compose_monta_la_carpeta():
-    html = PAGINA.split("</style>")[1].split("<script>")[0]
+    html = PAGINA.split("</style>")[1].split("<script")[0]
     assert 'id="btn-respaldo"' in html and 'id="estado-respaldo"' in html
-    assert '"/api/respaldo", {}' in PAGINA.split("<script>")[1]
+    assert '"/api/respaldo", {}' in PAGINA.split("<script")[1]
     compose = (Path(__file__).resolve().parent.parent / "docker-compose.yml").read_text(encoding="utf-8")
     assert "JT_RESPALDOS=/respaldos" in compose
     montaje = [l for l in compose.splitlines() if l.strip().startswith("- ") and l.rstrip().endswith(":/respaldos")]

@@ -253,7 +253,7 @@ def test_sin_ddl_version_7_y_corridas_antiguas_intactas(tmp_path, monkeypatch):
     esquema = c.execute("SELECT type, name, sql FROM sqlite_master ORDER BY name").fetchall()
     c.close()
     c, _, _ = corrida_jobspy(tmp_path, monkeypatch, {"QA": pd.DataFrame()})
-    assert buscar.VERSION_DB == 7 and c.execute("PRAGMA user_version").fetchone()[0] == 7
+    assert buscar.VERSION_DB == 8 and c.execute("PRAGMA user_version").fetchone()[0] == 8   # v8: sin cambios de esquema en una base nueva
     assert c.execute("SELECT type, name, sql FROM sqlite_master ORDER BY name").fetchall() == esquema
     assert c.execute("SELECT detalle FROM corridas WHERE id = 1").fetchone()[0] == viejo
     assert buscar.historial_corridas(c)[-1]["fuentes"] == json.loads(viejo)["fuentes"]

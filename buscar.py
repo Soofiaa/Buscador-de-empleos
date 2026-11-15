@@ -45,7 +45,7 @@ from robots import GestorRobots
 from filtros import (ORDEN_MODALIDAD, ORDEN_PRIORIDAD, ZONA, ahora_chile, antiguedad, base_oferta, ciudad_de,
                      clasificar, clave_oferta, normalizar, numero, plural, sin_genero, texto)
 
-VERSION_DB = 7
+VERSION_DB = 8
 salida = print   # salida por defecto (consola)
 # el servidor pone aquí, en el hilo de cada búsqueda, a quién avisar: así «Buscar» y «Explorar» no se mezclan
 salida_del_hilo = threading.local()
@@ -83,7 +83,6 @@ def _migrar_v2(con) -> int:
         else:
             vistas.add(k)
             con.execute("UPDATE ofertas SET clave = ? WHERE url = ?", (k, r["url"]))
-    con.commit()
     return len(filas) - len(vistas)
 
 
@@ -95,7 +94,6 @@ def _migrar_v3(con) -> None:
     for r in con.execute("SELECT url, titulo, empresa, ubicacion FROM ofertas").fetchall():
         con.execute("UPDATE ofertas SET clave_base = ?, ciudad = ? WHERE url = ?",
                     (base_oferta(r["titulo"], r["empresa"]), ciudad_de(r["ubicacion"]), r["url"]))
-    con.commit()
 
 
 def _migrar_v4(con) -> int:
@@ -117,7 +115,6 @@ def _migrar_v4(con) -> int:
         con.execute("DELETE FROM ofertas WHERE url = ?", (url,))
     con.execute("UPDATE ofertas SET clave = 'tmp:' || url")   # evita choques con claves antiguas (UNIQUE)
     con.executemany("UPDATE ofertas SET clave = ?, clave_base = ?, ciudad = ? WHERE url = ?", nuevas)
-    con.commit()
     return len(borrar)
 
 
@@ -267,24 +264,34 @@ def _abrir(path) -> sqlite3.Connection:
 
 
 class transaccion:
-    """BEGIN IMMEDIATE ... COMMIT: toma el turno de escritura al EMPEZAR (no a mitad de camino, que es lo que provoca
-    "database is locked"). Si algo falla, ROLLBACK: nunca queda nada escrito a medias."""
+    """BEGIN IMMEDIATE o SAVEPOINT si ya hay una transacción abierta.
+    Garantiza atomicidad y permite anidar llamadas sin romper el aislamiento exterior."""
     def __init__(self, con):
         self.con = con
+        self.savepoint_name = None
 
     def __enter__(self):
         if self.con.in_transaction:
-            self.con.commit()
-        try:
-            self.con.execute("BEGIN IMMEDIATE")
-        except sqlite3.OperationalError as ex:
-            if es_base_ocupada(ex):
-                raise BaseOcupada(str(ex)) from ex
-            raise
+            self.savepoint_name = f"sp_{uuid.uuid4().hex[:8]}"
+            self.con.execute(f"SAVEPOINT {self.savepoint_name}")
+        else:
+            try:
+                self.con.execute("BEGIN IMMEDIATE")
+            except sqlite3.OperationalError as ex:
+                if es_base_ocupada(ex):
+                    raise BaseOcupada(str(ex)) from ex
+                raise
         return self.con
 
     def __exit__(self, tipo, ex, tb):
-        self.con.execute("COMMIT" if tipo is None else "ROLLBACK")
+        if self.savepoint_name:
+            if tipo is None:
+                self.con.execute(f"RELEASE {self.savepoint_name}")
+            else:
+                self.con.execute(f"ROLLBACK TO {self.savepoint_name}")
+                self.con.execute(f"RELEASE {self.savepoint_name}")
+        else:
+            self.con.execute("COMMIT" if tipo is None else "ROLLBACK")
         if ex is not None and es_base_ocupada(ex):
             raise BaseOcupada(str(ex)) from ex
         return False
@@ -312,7 +319,7 @@ def _migrar_v7(con) -> None:
         if malas:
             raise ValueError(f"{plural(malas, 'oferta tiene', 'ofertas tienen')} una fase no válida: "
                              "no se migró nada (la base quedó como estaba)")
-        con.execute(f"PRAGMA user_version = {VERSION_DB}")
+        con.execute("PRAGMA user_version = 7")       # v7 exacta: el paso v8 (corridas.grupo) corre después, por su cuenta
 
 
 # ------------------------------------------------------------------ historial de estados (Fase C)
@@ -410,47 +417,86 @@ def en_fase_desde(filas: list[dict], estado: str, fase: str):
     return None
 
 
+def _migrar_v8(con) -> None:
+    """v7 -> v8: corridas.grupo pasa a tener versión propia. Solo agrega la columna si falta: en una base que ya la trae
+    (la de hoy) no hace nada, así que es seguro correrla sobre cualquier base v7."""
+    if "grupo" not in {r[1] for r in con.execute("PRAGMA table_info(corridas)")}:
+        con.execute("ALTER TABLE corridas ADD COLUMN grupo TEXT")       # las filas viejas quedan sin grupo: se agrupan por tiempo
+    con.execute(f"PRAGMA user_version = {VERSION_DB}")
+
+
+def _migrar_antiguas(con, version: int) -> int:
+    """v2/v3/v4 -> v5, en el orden en que llegaron. NO comitea: lo hace la transacción de quien llama."""
+    repetidas = 0
+    if version == 2:
+        repetidas += _migrar_v2(con)
+    if version <= 2 or version == 3:
+        _migrar_v3(con)
+    repetidas += _migrar_v4(con)
+    return repetidas
+
+
 def conectar(path=None) -> sqlite3.Connection:
+    """Abre la base y la lleva a la versión actual. Si la versión es desconocida, v1 (version 0 con tabla ofertas)
+    o incompatible, la respalda y reinicia. El esquema base se crea si falta (idempotente), y cada salto
+    de versión va en UNA transacción (BEGIN IMMEDIATE): si algo falla a mitad de camino, la base queda exactamente
+    como estaba."""
     path = path or config.DB_PATH
     con = _abrir(path)
     existe = con.execute(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='ofertas'").fetchone()
     version = con.execute("PRAGMA user_version").fetchone()[0]
-    if existe and version in (2, 3, 4):
-        repetidas = 0
-        if version == 2:
-            repetidas += _migrar_v2(con)
-        if version <= 2 or version == 3:
-            _migrar_v3(con)
-        repetidas += _migrar_v4(con)
-        if repetidas:
-            print(f"Base de datos actualizada: {plural(repetidas, 'duplicada', 'duplicadas')} entre fuentes eliminadas")
-    elif existe and version not in (5, 6, VERSION_DB):  # base de una versión desconocida: se respalda
+
+    # Respaldo inmediato si la tabla ofertas existe pero la versión es v1 (0) o desconocida/incompatible
+    if existe and version not in (2, 3, 4, 5, 6, 7, VERSION_DB):
         con.close()
         base, ext = os.path.splitext(path)
         respaldo = f"{base}_antigua_{datetime.now():%Y%m%d%H%M%S}{ext}"
         os.replace(path, respaldo)
         print(f"Base de datos anterior respaldada como {respaldo}")
         con = _abrir(path)
-        version = 0
-    con.execute("""
-        CREATE TABLE IF NOT EXISTS ofertas (
-            url TEXT PRIMARY KEY, clave TEXT UNIQUE,
-            titulo TEXT, empresa TEXT, ubicacion TEXT, publicada TEXT, raw TEXT,
-            categoria TEXT, razon TEXT, tipo TEXT, prioridad TEXT, modalidad TEXT,
-            contrato TEXT, sueldo TEXT, experiencia TEXT, motivo TEXT,
-            estado TEXT DEFAULT 'nueva', busqueda TEXT, detectada_en TEXT,
-            fuente TEXT DEFAULT 'indeed', clave_base TEXT, ciudad TEXT DEFAULT '')""")
-    con.execute("""CREATE TABLE IF NOT EXISTS corridas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT, inicio TEXT, fin TEXT, nuevas INTEGER, detalle TEXT)""")
-    if "grupo" not in {r[1] for r in con.execute("PRAGMA table_info(corridas)")}:   # shortcut: sin versión propia; las filas viejas quedan sin grupo y se agrupan por tiempo
-        con.execute("ALTER TABLE corridas ADD COLUMN grupo TEXT")
-    con.execute("""CREATE TABLE IF NOT EXISTS terminos_no_disponibles (
-        sitio TEXT, termino TEXT, hasta TEXT, PRIMARY KEY (sitio, termino))""")
-    con.commit()
-    if version < VERSION_DB:          # solo cuando hace falta: así cada petición no toma el turno de escritura
-        _migrar_v7(con)
-    _asegurar_historial(con)          # después de migrar: si la migración falla, no se crea nada
+        version = con.execute("PRAGMA user_version").fetchone()[0]
+
+    # 1. Esquema base (crea tablas si faltan, idempotente)
+    faltan = [t for t in ("ofertas", "corridas", "terminos_no_disponibles") if not con.execute(
+        "SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (t,)).fetchone()]
+    if faltan:
+        with transaccion(con):
+            con.execute("""
+                CREATE TABLE IF NOT EXISTS ofertas (
+                    url TEXT PRIMARY KEY, clave TEXT UNIQUE,
+                    titulo TEXT, empresa TEXT, ubicacion TEXT, publicada TEXT, raw TEXT,
+                    categoria TEXT, razon TEXT, tipo TEXT, prioridad TEXT, modalidad TEXT,
+                    contrato TEXT, sueldo TEXT, experiencia TEXT, motivo TEXT,
+                    estado TEXT DEFAULT 'nueva', busqueda TEXT, detectada_en TEXT,
+                    fuente TEXT DEFAULT 'indeed', clave_base TEXT, ciudad TEXT DEFAULT '')""")
+            con.execute("""CREATE TABLE IF NOT EXISTS corridas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, inicio TEXT, fin TEXT, nuevas INTEGER, detalle TEXT)""")
+            con.execute("""CREATE TABLE IF NOT EXISTS terminos_no_disponibles (
+                sitio TEXT, termino TEXT, hasta TEXT, PRIMARY KEY (sitio, termino))""")
+
+    # 2. Migraciones (bloque transaccional)
+    if version < VERSION_DB:
+        with transaccion(con):
+            # v2 -> v5
+            if version in (2, 3, 4):
+                repetidas = _migrar_antiguas(con, version)
+                con.execute("PRAGMA user_version = 5")
+                version = 5
+                if repetidas:
+                    print(f"Base de datos actualizada: {plural(repetidas, 'duplicada', 'duplicadas')} entre fuentes eliminadas")
+
+            # v5/v6 -> v7
+            if version < 7:
+                _migrar_v7(con)
+                version = 7
+
+            # v7 -> v8
+            if version < 8:
+                _migrar_v8(con)
+                version = 8
+
+    _asegurar_historial(con)
     return con
 
 
@@ -470,7 +516,21 @@ def _duplicada(con, f: dict) -> bool:
 
 
 def guardar(con, filas: list[dict]) -> int:
-    """Inserta ofertas nuevas. Devuelve cuántas fueron nuevas y relevantes (no descartadas)."""
+    """Inserta ofertas nuevas. Devuelve cuántas fueron nuevas y relevantes (no descartadas).
+    Aplica el tope de ofertas por corrida (config.MAX_OFERTAS_POR_CORRIDA)."""
+    if not filas:
+        return 0
+    # B2: si hay tope, verificamos cuántas se guardaron ya en esta corrida (misma 'detectada_en')
+    detectada_en = filas[0]["detectada_en"]
+    if config.MAX_OFERTAS_POR_CORRIDA > 0:
+        ya_guardadas = con.execute("SELECT COUNT(*) FROM ofertas WHERE detectada_en = ?", (detectada_en,)).fetchone()[0]
+        if ya_guardadas >= config.MAX_OFERTAS_POR_CORRIDA:
+            return 0
+        tope = config.MAX_OFERTAS_POR_CORRIDA - ya_guardadas
+        if len(filas) > tope:
+            filas = filas[:tope]
+            print(f"[buscar] Aviso: se alcanzó el tope de {config.MAX_OFERTAS_POR_CORRIDA} ofertas por corrida; las demás quedan para la próxima búsqueda.")
+
     nuevas = 0
     for f in filas:
         if _duplicada(con, f):
