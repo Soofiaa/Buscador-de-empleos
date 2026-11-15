@@ -45,7 +45,8 @@ class Servidor:
         self.senal = tmp_path / "senal"
         self.puerto = puerto_libre()
         env = {**os.environ, "RAIZ": str(RAIZ), "SENAL": str(self.senal), "PUERTO": str(self.puerto),
-               "JT_DB": self.ruta, "JT_RESPALDOS": "", "PYTHONIOENCODING": "utf-8", **env_extra}
+               "JT_DB": self.ruta, "JT_RESPALDOS": "", "JT_TOKEN": servidor.JT_TOKEN, "PYTHONIOENCODING": "utf-8",
+               **env_extra}
         self.p = subprocess.Popen([sys.executable, "-c", LANZADOR], env=env, cwd=str(tmp_path),
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8")
         for _ in range(100):                                   # hasta que atienda

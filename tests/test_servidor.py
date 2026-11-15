@@ -56,7 +56,10 @@ def srv(tmp_path):
 
 def pedir(puerto, metodo, ruta, cuerpo=None, cabeceras=None):
     c = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
-    c.request(metodo, ruta, json.dumps(cuerpo) if cuerpo is not None else None, cabeceras or {})
+    cabs = cabeceras or {}
+    if "X-JT-Token" not in cabs and ruta.startswith("/api/"):
+        cabs["X-JT-Token"] = servidor.JT_TOKEN
+    c.request(metodo, ruta, json.dumps(cuerpo) if cuerpo is not None else None, cabs)
     r = c.getresponse()
     datos = r.read()
     return r.status, r.getheader("Content-Type"), datos

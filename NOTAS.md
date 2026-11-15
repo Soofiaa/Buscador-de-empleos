@@ -98,6 +98,11 @@ manda lo más reciente y corrige la nota.
 
 ## Pendientes
 
+## Pendientes
+- **Token de autenticación local (A3):** La API local exige ahora un token (`JT_TOKEN`) en el header `X-JT-Token`. Configúralo en `.env` (o consulta el token generado al arrancar en `docker logs`).
+- **SSRF en `/api/aviso` (A2):** Solo acepta portales de empleo conocidos (allowlist de dominios + validación de IPs privadas).
+- **Docker no-root (M2):** El contenedor corre como usuario `jt` (UID 1000). Requiere migrar permisos de los volúmenes existentes.
+
 - **«informático junior» (activo desde 14-10):** criterio de salida: si en unas 10 corridas no llega ninguna oferta
   útil con el motivo «rol: informático junior», se quita el término. Detalle en el historial.
 - **Diagnóstico de términos (15-10):** el plan de tres fases (contadores, retiros de términos y ubicaciones, términos

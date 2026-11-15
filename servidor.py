@@ -50,7 +50,10 @@ DENTRO del contenedor, pero el puerto se publica únicamente en 127.0.0.1 (ver d
 Uso:  python servidor.py [--puerto 8765] [--no-abrir]
 """
 import argparse
+import hmac
 import json
+import os
+import secrets
 import signal
 import sqlite3
 import sys
@@ -70,6 +73,14 @@ import respaldo
 from red import Bloqueo, ClienteHTTP, ErrorFuente, NoEncontrada
 from robots import GestorRobots
 from informe import PAGINA
+
+# Token de autenticación (si JT_TOKEN está vacío, se genera uno aleatorio al arrancar)
+JT_TOKEN = os.environ.get("JT_TOKEN") or config.JT_TOKEN or secrets.token_urlsafe(32)
+if not (os.environ.get("JT_TOKEN") or config.JT_TOKEN):
+    print(f"--- JT_TOKEN generado (solo este arranque): {JT_TOKEN} ---", file=sys.stderr, flush=True)
+
+# Marcador en pagina.html que el servidor sustituye por el token real
+MARCADOR_TOKEN = "__JT_TOKEN__"
 
 LOCALES = ("127.0.0.1", "localhost", "[::1]")
 LIMITE_CUERPO = 10_000
@@ -279,6 +290,14 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
         def _json(self, codigo, obj):
             self._enviar(codigo, json.dumps(obj, ensure_ascii=False).encode("utf-8"))
 
+        def _token_valido(self) -> bool:
+            """Exige token en X-JT-Token en todas las llamadas a /api/*, salvo exenciones."""
+            ruta = urllib.parse.urlsplit(self.path).path
+            if not ruta.startswith("/api/") or ruta == "/api/estado":   # exentos: página, tipografías, healthcheck
+                return True
+            token = self.headers.get("X-JT-Token")
+            return token is not None and hmac.compare_digest(token, JT_TOKEN)
+
         def _permitido(self) -> bool:
             origen = self.headers.get("Origin")
             return _host_local(self.headers.get("Host", "")) and (origen is None or _host_local(origen))
@@ -286,9 +305,12 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
         def do_GET(self):
             if not self._permitido():
                 return self._json(403, {"error": "origen no permitido"})
+            if not self._token_valido():
+                return self._json(401, {"error": "falta el token de acceso; revisa JT_TOKEN o los logs del contenedor"})
             ruta = urllib.parse.urlsplit(self.path).path
             if ruta == "/":
-                return self._enviar(200, PAGINA.encode("utf-8"), "text/html; charset=utf-8")
+                cuerpo = PAGINA.replace(MARCADOR_TOKEN, JT_TOKEN).encode("utf-8")
+                return self._enviar(200, cuerpo, "text/html; charset=utf-8")
             if ruta.startswith("/fuentes/"):
                 archivo = FUENTES.get(ruta[len("/fuentes/"):])
                 if archivo is None or not archivo.is_file():
@@ -356,8 +378,12 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                     return self._json(403, {"error": "origen no permitido"})
                 return self._json(413, {"error": f"pedido demasiado grande (máximo {limite} bytes)"})
             crudo = self.rfile.read(largo)
+            
             if not self._permitido():
                 return self._json(403, {"error": "origen no permitido"})
+            if not self._token_valido():
+                return self._json(401, {"error": "falta el token de acceso; revisa JT_TOKEN o los logs del contenedor"})
+            
             try:
                 datos = json.loads(crudo or b"{}")
             except json.JSONDecodeError:
@@ -388,8 +414,8 @@ def crear_servidor(app: Aplicacion, puerto: int = None, host: str = None) -> Thr
                 return self._json(409, {"error": "ya hay una búsqueda en curso"})
             if ruta == "/api/aviso":
                 url = datos.get("url") if isinstance(datos, dict) else None
-                if not isinstance(url, str) or not buscar._url_valida(url.strip()):
-                    return self._json(400, {"error": "la URL debe empezar con http:// o https://"})
+                if not isinstance(url, str) or not rellenar_aviso._es_url_aviso_permitida(url.strip()):
+                    return self._json(400, {"error": "URL no permitida (fuente desconocida o dirección privada)"})
                 con = app.conexion()                  # primero lo que ya tienes guardado: no visita ningún sitio
                 try:
                     guardado = rellenar_aviso.desde_base(con, url.strip())

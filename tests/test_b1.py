@@ -233,7 +233,7 @@ def test_csv_protege_formulas_y_es_descarga(srv):
     base.close()
     import http.client
     con = http.client.HTTPConnection("127.0.0.1", puerto, timeout=5)
-    con.request("GET", "/api/exportar?formato=csv&alcance=todas")
+    con.request("GET", "/api/exportar?formato=csv&alcance=todas", headers={"X-JT-Token": servidor.JT_TOKEN})
     r = con.getresponse()
     cuerpo = r.read()
     assert r.status == 200 and r.getheader("Content-Type").startswith("text/csv")

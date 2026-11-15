@@ -168,6 +168,8 @@ os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
 RESPALDOS_DIR = os.environ.get("JT_RESPALDOS", "")
 PUERTO = int(os.environ.get("JT_PUERTO", "8765"))
 HOST = os.environ.get("JT_HOST", "127.0.0.1")        # en Docker: 0.0.0.0 dentro del contenedor (el puerto se publica solo en 127.0.0.1)
+# Token de autenticación local (A3): si está vacío, servidor.py genera uno aleatorio al arrancar y lo deja en stderr.
+JT_TOKEN = os.environ.get("JT_TOKEN", "")
 
 # ============================================================== Exclusiones absolutas
 EXCLUIR_EMPRESAS = ["accenture", "bairesdev", "baires dev"]

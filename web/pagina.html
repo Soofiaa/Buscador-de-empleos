@@ -1124,7 +1124,11 @@ function conFoco(cont, pintarZona) {
 
 async function api(ruta, cuerpo) {               // un fallo de red se devuelve como status 0, no como excepción
   try {
-    const r = await fetch(ruta, cuerpo === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) });
+    const opts = cuerpo === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo) };
+    if (ruta.startsWith("/api/")) {
+      opts.headers = { ...opts.headers, "X-JT-Token": "__JT_TOKEN__" };
+    }
+    const r = await fetch(ruta, opts);
     return { ok: r.ok, status: r.status, json: await r.json().catch(() => ({})) };
   } catch (e) {
     return { ok: false, status: 0, json: {} };
@@ -1306,7 +1310,8 @@ async function cargar() {
     pintar();
   } else {
     pintarEstadoDb(null);
-    $("lista").replaceChildren(h("div", { class: "vacio" }, "No se pudieron cargar las ofertas (¿está corriendo el servidor?)."));
+    if (r.status === 401) $("lista").replaceChildren(h("div", { class: "vacio" }, "Falta el token de acceso; revisa JT_TOKEN o los logs del contenedor."));
+    else $("lista").replaceChildren(h("div", { class: "vacio" }, "No se pudieron cargar las ofertas (¿está corriendo el servidor?)."));
   }
   await estado();
 }

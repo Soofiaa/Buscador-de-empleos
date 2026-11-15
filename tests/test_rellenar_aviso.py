@@ -96,10 +96,12 @@ def test_si_la_ia_no_encuentra_cargo_ni_empresa_es_error(monkeypatch):
 
 
 def test_si_la_ia_falla_el_error_llega_al_usuario(monkeypatch):
+    # El HTML pesa menos de 300 caracteres: desde_url derivaría al navegador real (y a un sitio de verdad).
+    # Se le pasa uno falso para que el error de la IA llegue igual, sin pegarle a ningún portal.
     monkeypatch.setattr(rellenar_aviso, "pedir", lambda url, c, r, **_: "<body>texto</body>")
     monkeypatch.setattr(rellenar_aviso.ia, "extraer_aviso", lambda t: {"error": "sin API Key"})
     try:
-        rellenar_aviso.desde_url("https://x.cl/1", None, None)
+        rellenar_aviso.desde_url("https://www.bne.gob.cl/1", None, None, navegador=lambda u: "<body>texto</body>")
     except ErrorFuente as ex:
         assert "sin API Key" in str(ex)
         return
