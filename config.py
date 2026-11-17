@@ -11,6 +11,11 @@ TERMINOS_A = [
     "QA",
     "tester",
     "analista de datos",
+    "automatizacion",
+    "backend",
+    "analista de pruebas",
+    "soporte tecnico",
+    "analista de soporte",
 ]
 # Nota: "BPMN UML" (0 resultados en todas las zonas) se reemplazó por "BPMN";
 # los términos con "junior" + varias palabras técnicas no devuelven nada en Indeed.
@@ -19,6 +24,7 @@ TERMINOS_B = [
     "analista de procesos",
     "analista funcional",
     "business analyst",
+    "analista de negocio",
 ]
 # Fuentes. Indeed busca con todos los términos; Google y Glassdoor con la lista
 # corta (TERMINOS_SECUNDARIOS) para limitar peticiones y riesgo de bloqueo.
@@ -57,6 +63,7 @@ TERMINOS_SECUNDARIOS = [
     "analista de calidad", "analista de mejora",
     "analista de requerimientos junior", "analista de requerimientos jr",
     "soporte TI", "help desk",
+    "automatizacion de procesos", "analista de pruebas", "soporte tecnico", "mesa de ayuda", "analista de negocio",
 ]
 
 # Puestos que efectivamente devuelven resultados en LinkedIn, para reducir el tiempo de búsqueda
@@ -68,6 +75,8 @@ TERMINOS_LINKEDIN = [
     "tester",
     "analista de datos",
     "analista funcional",
+    "analista de procesos",
+    "automatizacion",
 ]
 # ---- Explorar remotos (botón aparte): roles fuera de tu perfil TI que podrían calzar, SOLO remotos ----
 # Indeed los busca como "<término> remoto" en Chile (Himalayas y Jobicy, con TERMINOS_EXPLORAR_EN). Las fuentes remotas
@@ -101,19 +110,22 @@ EXPERIENCIA_SIN_VERIFICAR = "Sin verificar"
 TERMINOS_BNE = ["ocupacion:7643", "analista funcional", "analista de procesos", "tester", "testing",
                 "calidad de software", "automatizacion de pruebas",
                 "control de gestion", "analista de operaciones", "datos maestros", "mejora continua",
-                "informatico junior"]
+                "informatico junior", "automatizacion", "soporte tecnico", "analista de pruebas"]
 # Trabajando: solo existen las páginas /trabajo-<término> que el sitio tiene; si no, 404 (se recuerda 30 días).
 TERMINOS_TRABAJANDO = ["analista-funcional", "analista-qa", "analista-programador",
-                       "desarrollador-backend", "programador", "devops", "informatico"]   # verificados el 2-11: 200 (sin 404)
+                       "desarrollador-backend", "programador", "devops", "informatico",
+                       "soporte-tecnico", "automatizacion"]   # 2-11: 200; 16-11: soporte-tecnico y automatizacion 200, analista-de-pruebas 404 (no se agrega)
 TERMINOS_CHILETRABAJOS = ["analista funcional", "analista de procesos", "analista qa", "tester",
                           "analista programador", "desarrollador junior", "desarrollador jr", "analista de datos",
                           "analista de reporteria", "control de gestion", "analista de operaciones", "datos maestros",
-                          "informatico junior", "informatico jr"]
+                          "informatico junior", "informatico jr",
+                          "automatizacion", "soporte tecnico", "analista de pruebas"]
 # Laborum: cada término abre un navegador sin ventana (~5 s) y trae los 20 más relevantes; van a la URL como slug
 # (laborum.url_busqueda). Lista corta a propósito.
 TERMINOS_LABORUM = ["analista funcional", "analista de procesos", "analista qa", "tester", "analista de sistemas",
                     "desarrollador python", "desarrollador backend", "desarrollador junior", "analista de datos",
-                    "analista bi", "control de gestion", "datos maestros", "informatico junior"]
+                    "analista bi", "control de gestion", "datos maestros", "informatico junior",
+                    "automatizacion", "soporte tecnico", "analista de pruebas"]
 # Chumi: no tiene búsqueda en HTML; se leen las primeras páginas de su listado general (/trabajos?page=N, ~25 cada una)
 # y el clasificador filtra como siempre.
 TERMINOS_CHUMI = ["página 1", "página 2", "página 3"]
