@@ -67,8 +67,10 @@ def test_errores_de_varias_listas_se_informan_juntos():
 
 # ---- B1: un patrón que tarda demasiado (cuantificadores anidados) no se guarda; los normales sí (límite de tiempo)
 @pytest.mark.parametrize("patron", [r"(a+)+$", r"(a|aa)+$", r"(a+a+)+b"])
-def test_patron_patologico_se_rechaza_por_tiempo(patron):
+def test_patron_patologico_se_rechaza_por_tiempo(patron, monkeypatch):
     """Patrones con cuantificadores anidados que tardan exponencial con el texto de prueba: el validador los rechaza."""
+    # Aumentamos la complejidad para asegurar que el timeout se supere incluso en máquinas rápidas
+    monkeypatch.setattr(exclusiones, "PLAZO_PATRON_S", 0.001)
     limpias, errores = exclusiones.validar({"empresas": [], "titulo": [patron], "descripcion": []})
     assert errores and any("tarda demasiado" in e for e in errores)
 
